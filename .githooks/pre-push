@@ -29,8 +29,8 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     fi
   done
 
-  # Check for secret-like content in the pushed commits (exclude placeholder files)
-  if git diff "$range" -- . ':(exclude).env.example' ':(exclude)*/.env.example' 2>/dev/null | grep -qE "$SECRET_PATTERNS" 2>/dev/null; then
+  # Check for secret-like content (exclude hooks — they define patterns; exclude .env.example placeholders)
+  if git diff "$range" -- . ':(exclude).githooks' ':(exclude).env.example' ':(exclude)*/.env.example' 2>/dev/null | grep -qE "$SECRET_PATTERNS" 2>/dev/null; then
     echo -e "${RED}Blocked:${NC} Push contains data that looks like API keys or secrets"
     echo -e "${YELLOW}Remove .env and other secret files from your commits before pushing.${NC}"
     blocked=1
