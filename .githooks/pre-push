@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Pre-push hook: block pushes that would expose secrets.
+# Install: git config core.hooksPath .githooks
+
+set -e
+
+# Patterns that indicate leaked secrets (grep -E)
+SECRET_PATTERNS='sk-ant-|sk-proj-|ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}'
+
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+blocked=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ -z "$local_sha" || "$local_sha" == "0000000000000000000000000000000000000000" ]] && continue
+  [[ -z "$remote_sha" || "$remote_sha" == "0000000000000000000000000000000000000000" ]] && range="$local_sha" || range="$remote_sha..$local_sha"
+
+  # Check for sensitive filenames in the pushed commits
+  files=$(git diff-tree --no-commit-id --name-only -r "$range" 2>/dev/null || true)
+  for f in $files; do
+    # Block .env files (allow .env.example)
+    if [[ "$f" == ".env" || "$f" == "agent/.env" || "$f" == "relay/.env" ]] || \
+       [[ "$f" == .env* ]] || [[ "$f" == *"/.env"* ]] || [[ "$f" == *"/.env."* ]]; then
+      [[ "$f" == *".env.example"* ]] && continue
+      echo -e "${RED}Blocked:${NC} Pushing would expose '$f' (contains secrets)"
+      blocked=1
+    fi
+  done
+
+  # Check for secret-like content in the pushed commits
+  if git diff "$range" 2>/dev/null | grep -qE "$SECRET_PATTERNS" 2>/dev/null; then
+    echo -e "${RED}Blocked:${NC} Push contains data that looks like API keys or secrets"
+    echo -e "${YELLOW}Remove .env and other secret files from your commits before pushing.${NC}"
+    blocked=1
+  fi
+done
+
+if [[ $blocked -eq 1 ]]; then
+  echo ""
+  echo "Push aborted. Add .env to .gitignore and remove it from history if already committed."
+  echo "Rotate any exposed keys immediately."
+  exit 1
+fi
+
+exit 0

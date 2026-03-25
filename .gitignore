@@ -1,0 +1,29 @@
+# Environment and secrets — never commit
+.env
+.env.*
+!.env.example
+agent/.env
+relay/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Local data
+*.db
+*.sqlite3
+uploads/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
