@@ -1,240 +1,129 @@
-# Dumpling v2 — Native iOS App Plan
+# Dumpling v2 — Architecture Plan
 
-> Share anything from any iOS app → Dumpling keeps it (with full context), sorts it into one of Alex's categories, and only pushes it into Reminders/Calendar when it's actually time to act.
+## What is Dumpling
 
-This plan replaces the v1 architecture (iOS share extension → Fly.io relay → Mac polling agent → osascript). v1 code has been removed from `main`; it is preserved on the **`v1` branch** for reference (`git show v1:<path>`). All `agent/…`, `relay/…` and `plans/dumpling-*` paths below refer to that branch.
+Personal content routing agent. Share anything from your iPhone (links, events, music, ideas, LinkedIn posts, job listings, GitHub repos) via the native iOS share sheet. A Mac agent powered by Claude classifies the content, enriches it, and routes it to Apple Reminders, Calendar, Notes, Mail, or creates draft files.
+
+**Goal:** Make it shareable with friends as a product.
 
 ---
 
-## 1. Why v1 failed (design constraints for v2)
+## Architecture
 
-| v1 problem | Evidence | v2 rule |
+```
+iPhone (iOS Share Extension)
+    ↓  HTTPS POST /ingest
+Hosted Relay (Fly.io — FastAPI + Postgres)
+    ↓  polling every 30s
+Mac Agent (Python + Anthropic SDK + osascript)
+    → Apple Reminders, Calendar, Notes, Mail
+```
+
+### Components
+
+| Component | Stack | Location |
 |---|---|---|
-| Info lost on save | EventKit can't set the Reminders URL field; links/tags got crammed into notes as `#hashtags` (`agent/tools/apple_reminders.py`, `create_reminder.swift`) | **Dumpling is the store of record.** Reminders/Calendar only get a pointer back. |
-| Silent failures | Local `relay/dumpling.db`: many items marked `done` whose result was `osascript timed out` | **Save raw first, process second.** An item exists the instant the share sheet closes. Failures are visible states, never "done". |
-| Mis-categorized links | One forced category at share time; no review path | **Confidence + review.** Low-confidence items land in Inbox for one-tap confirm. Corrections become rules. |
-| Fragile pipeline | Needs relay + awake Mac + Claude + AppleScript | **Everything on the phone.** No relay, no Mac agent. |
-| Reminders clutter | Ten "someday" lists sitting in Reminders until they rot into **Stale** | **Only `Next` lives in Reminders.** Everything else waits in Dumpling until it's relevant. |
+| iOS app + Share Extension | Swift / SwiftUI / iOS 27 | `ios/` |
+| Relay server | FastAPI + SQLAlchemy + Postgres | `relay/` (Phase 2) |
+| Mac agent | Python + Anthropic SDK | `agent/` (Phase 2) |
+| Web dashboard | Next.js | `dashboard/` (Phase 3) |
 
 ---
 
-## 2. Product model
+## Design System
 
-### Categories (mirror Alex's current Reminders lists)
+**Y2K pastel neo-brutalism pixel aesthetic.**
 
-| Category | Icon (SF Symbol, match current list) | Default home | Promotes to **Next** when… |
-|---|---|---|---|
-| Dev | `curlybraces` | Dumpling | Weekly review / manual |
-| Ideas | `lightbulb.fill` | Dumpling | Weekly review / manual |
-| Design | `wrench.and.screwdriver.fill` | Dumpling | Weekly review / manual |
-| Watch | `tv.fill` | Dumpling | Release date reached |
-| Home | `heart.fill` | Dumpling (urgent → Next) | Due date / season / weekend |
-| Music | `music.note` | Dumpling | Manual (later: show near you) |
-| Read | `book.fill` | Dumpling | Weekend digest / manual |
-| Purchase | `banknote.fill` | Dumpling | Due date (gift occasion) / location / manual |
-| Dine | `fork.knife` | Dumpling | Location (near it) / manual |
-| Destinations | `airplane` | Dumpling | Manual (trip planning) |
-
-Plus two system destinations that are *not* categories:
-- **Next** — the one Reminders list Dumpling writes to. "Do this now."
-- **Calendar** — dated events (flyers, tickets, shows). Created directly with the URL field set.
-
-`Stale` stops being a list: it's the **Archive** state (auto after N days untouched, default 60, still searchable).
-
-### Item lifecycle
-
-```
-captured ──► sorted ──► (resting) ──► surfaced ──► promoted ──► done
-   │            │                         │            (Reminder in Next
-   │            └─► needsReview (Inbox)   │             or Calendar event)
-   └─► failed (visible, retryable)        └─► snoozed / archived
-```
-
-- `captured`: raw payload saved by the share extension. Never lost.
-- `sorted`: category + extracted fields assigned (by rule or model).
-- `needsReview`: confidence below threshold → Inbox.
-- `surfaced`: a trigger fired (date, location, digest) → notification.
-- `promoted`: Dumpling created a Reminder/Event and stored its identifier.
-- `archived`: the new "Stale".
-
-### Promotion triggers (v2.0 scope = on-device only)
-1. **Date** — model extracts a relevant future date (on-sale date, release date, event date, deadline). Dumpling schedules a local notification / promotion N days before.
-2. **Location** — Dine, Purchase (store), Home (hardware store) items with a place get a geofence. iOS caps region monitoring (~20 regions): keep the nearest/most recent active.
-3. **Weekly digest** — one notification (default Sunday morning) listing resting items per category; actions: Promote, Snooze, Archive.
-4. **Urgency override** — share-sheet note containing "now"/"urgent"/"today", or the "Next" toggle in the share UI → straight to Reminders.
-
-Deferred (needs background web checks): price drops, artist tour dates, streaming availability.
-
----
-
-## 3. Architecture
-
-```
-┌─────────────────────┐   App Group container   ┌──────────────────────────┐
-│ Share Extension     │ ───── SwiftData ──────► │ Dumpling App             │
-│ - extract payload   │                          │ - Sorter (rules → model) │
-│ - write `captured`  │                          │ - Promoter (EventKit)    │
-│ - optional quick    │                          │ - Triggers (dates, geo,  │
-│   category / Next   │                          │   digest)                │
-└─────────────────────┘                          │ - App Intents / Spotlight│
-                                                  └──────────────────────────┘
-```
-
-- **Targets:** `Dumpling` (iOS app, SwiftUI), `DumplingShareExtension`. Later: macOS via multiplatform target + CloudKit.
-- **Min OS:** iOS 27.
-- **Project generation:** XcodeGen (`project.yml` in `ios/`) so the project is editable from the terminal. Alex opens Xcode only to set signing team and run on device.
-- **Persistence:** SwiftData store in App Group container `group.<bundle-prefix>.dumpling`. Share extension writes; app reads/processes.
-- **Sorting:**
-  1. Rules first (port `agent/rules.py`: substring / domain / regex → category). Rules stored in SwiftData.
-  2. Then model via **Foundation Models framework** with guided generation (`@Generable` struct output). Try on-device Apple model first; fall back to Claude provider (API key in Keychain) when on-device is unavailable or confidence is low. ⚠️ Verify the iOS 27 `LanguageModel` provider API and Claude provider setup against the SDK/WWDC26 docs before implementing.
-  3. Multimodal: images (screenshots, flyers) go to the model directly; Vision OCR as fallback.
-- **Promotion:** EventKit directly from the app (`requestFullAccessToReminders`, `requestFullAccessToEvents`). Reminder notes contain `dumpling://item/<id>` deep link + original URL. Calendar events set `url`. Store `ekIdentifier` on the item.
-- **Discovery:** App Intents — `ItemEntity` exposed to Spotlight / Siri ("find the Figma plugin I saved"), plus intents: `SaveToDumpling`, `PromoteItem`, `OpenItem`. ⚠️ Verify iOS 27 entity/intent schema APIs.
-- **Background:** `BGAppRefreshTask` to process any `captured` items the extension couldn't finish, and to schedule date triggers.
-
----
-
-## 4. Data model (SwiftData, first pass)
-
-```swift
-@Model final class Item {
-    var id: UUID
-    var createdAt: Date
-    var updatedAt: Date
-    var state: ItemState              // captured, sorted, needsReview, surfaced, promoted, done, archived, failed
-    var sourceApp: String?
-
-    // Raw capture — never mutated after save
-    var rawText: String?
-    var rawURL: URL?
-    var rawImagePath: String?          // file in App Group container
-    var userNote: String?
-
-    // Sorted output
-    var category: Category?
-    var title: String?
-    var summary: String?
-    var confidence: Double?
-    var sortedBy: SortSource?          // rule, onDevice, claude, user
-    var linkPreview: LinkPreview?      // title, site, image (LPMetadataProvider)
-
-    // Triggers
-    var relevantDate: Date?
-    var place: Place?                  // name, lat/lng, radius
-    var snoozedUntil: Date?
-
-    // Promotion
-    var promotedTo: PromotionTarget?   // reminder, calendarEvent
-    var ekIdentifier: String?
-
-    var processingError: String?
-}
-
-@Model final class Rule {
-    var pattern: String
-    var patternType: PatternType       // substring, domain, regex
-    var category: Category
-    var promote: Bool                  // e.g. "zeffy.com → Next"
-    var createdFromItemID: UUID?
-}
-```
-
-`Category` is an enum matching section 2. Keep raw + sorted fields separate so re-sorting is always possible.
-
----
-
-## 5. Screens
-
-1. **Inbox** — `needsReview` + `failed` items. Swipe: confirm category / change / Next / archive. Changing a category offers "Always do this for `<domain>`?" → creates a Rule.
-2. **Library** — grid of the 10 categories (same colors/icons as the Reminders lists); tap → item list with link previews.
-3. **Coming Up** — items with a relevant date or active geofence, sorted by soonest.
-4. **Item detail** — preview, raw capture, user note, extracted fields, actions: Promote to Next, Add to Calendar, Snooze, Archive, Open original.
-5. **Settings** — Reminders list name (default `Next`), calendar name (v1 used `Social`), digest day/time, archive-after days, Claude API key, rules editor.
-6. **Share sheet UI** — keep v1 Y2K pastel pixel style (`ios/DumplingShareExtension/ShareViewController.swift`). Show: preview, note field, suggested category chip (tap to change), "Next" toggle, Save. Must close in < 1s; sorting continues in the app/background if needed.
-
----
-
-## 6. Build phases
-
-Each phase ends with something Alex can run on his phone.
-
-### Phase 0 — Project setup
-- [ ] Create `ios/project.yml` (XcodeGen) with app + share extension targets, App Group, iOS 27 deployment target.
-- [ ] Move/adapt existing `ShareViewController.swift` / `ShareViewModel.swift` into the extension target; remove relay upload code.
-- [ ] `ios/README.md`: `brew install xcodegen && xcodegen generate`, signing steps.
-- [x] Remove v1 relay, Mac agent and v1 plans from `main` (preserved on `v1` branch).
-- [ ] Add `CLAUDE.md` at repo root describing v2 layout, build commands, and that v1 lives on the `v1` branch.
-- [ ] Update `.gitignore` for Xcode (`*.xcodeproj` if generated by XcodeGen, `xcuserdata/`, `DerivedData/`).
-- **Done when:** app + extension build and install on device; sharing a URL shows the share UI.
-
-### Phase 1 — Capture that never loses anything
-- [ ] SwiftData model + App Group store shared by both targets.
-- [ ] Extension saves `captured` item (text, URL, image, note, source app) and dismisses.
-- [ ] App lists all items (plain list), shows raw fields.
-- [ ] Link previews via `LPMetadataProvider`.
-- **Done when:** 20 varied shares (Safari, Instagram, Music, Maps, screenshots, plain text) all appear with nothing missing.
-
-### Phase 2 — Sorting
-- [ ] Port rule engine from `agent/rules.py`; seed rules from v1 `routing_rules` table if useful.
-- [ ] Foundation Models sorter with `@Generable` output: `category`, `title`, `summary`, `relevantDate`, `place`, `urgency`, `confidence`.
-- [ ] Prompt: adapt `SYSTEM_PROMPT` in `agent/agent.py`, rewritten for the 10 categories + Next/Calendar.
-- [ ] Claude fallback provider; Keychain-stored key.
-- [ ] Confidence threshold (start 0.7) → `needsReview`.
-- [ ] Inbox screen + "always do this" rule creation.
-- [ ] Eval set: `ios/DumplingTests/sorting_cases.json` — 40+ real examples (pull from v1 `relay/dumpling.db` and Alex's current Reminders lists) with expected category. Test target runs it.
-- **Done when:** ≥ 90% correct category on the eval set; everything else lands in Inbox, not in a wrong category.
-
-### Phase 3 — Promotion (Reminders + Calendar)
-- [ ] EventKit permission flow.
-- [ ] Promote to `Next` reminder: clean title (port `_clean_title` from `apple_reminders.py`), notes = original URL + `dumpling://item/<id>`, due date if any.
-- [ ] Add to Calendar: title, start/end, location, `url`, notes; configurable calendar.
-- [ ] Urgency override from share sheet → auto-promote.
-- [ ] Deep link handling `dumpling://item/<id>`.
-- [ ] Sync back: when the Reminder is completed, mark item `done` (check on app foreground via `ekIdentifier`).
-- **Done when:** share a ticket link with "buy Friday" → reminder in Next due Friday, tapping link opens the item in Dumpling.
-
-### Phase 4 — Resting + triggers
-- [ ] Library and Coming Up screens.
-- [ ] Date triggers → local notifications with Promote / Snooze actions.
-- [ ] Location triggers (Core Location region monitoring, nearest ≤ 20).
-- [ ] Weekly digest notification.
-- [ ] Auto-archive after N days untouched.
-- **Done when:** a Dine item fires a notification when near the restaurant; Sunday digest arrives with actionable items.
-
-### Phase 5 — Siri, Spotlight, migration
-- [ ] App Intents: `ItemEntity` in Spotlight; Save / Promote / Open intents.
-- [ ] One-time importer: read Alex's existing Reminders lists (Dev, Ideas, Design, Watch, Home, Music, Read, Purchase, Dine, Destinations, Stale) via EventKit → create Dumpling items in matching categories (Stale → archived). Preview before import; don't delete originals until Alex confirms.
-- **Done when:** "Hey Siri, find the GitHub repo I saved about agents" returns the item; old lists imported.
-
-### Later
-- macOS target + CloudKit sync.
-- Background web checks: price drops, tour dates, streaming availability.
-- Music: add to Apple Music "Explore" playlist via MusicKit (v1 `apple_music.py` spec).
-
----
-
-## 7. Reuse from v1
-
-Everything except the share extension and logo lives only on the `v1` branch. Read with `git show v1:<path>`.
-
-| v1 file | Use in v2 |
+| Token | Value |
 |---|---|
-| `ios/DumplingShareExtension/*.swift` | Starting point for extension UI + payload extraction |
-| `agent/rules.py` | Port matching logic to Swift |
-| `agent/agent.py` `SYSTEM_PROMPT` | Basis for sorter instructions |
-| `agent/tools/apple_reminders.py` `_clean_title` | Port title cleanup |
-| `relay/dumpling.db` (local only, never committed — on Alex's Mac) | Mine for eval cases |
-| `plans/dumpling-*-pipeline.md` | Per-type behavior ideas (events, music, jobs, etc.) |
-| `logo/` | App icon |
+| Pink | `#FFB3C6` |
+| Blue | `#B3D9FF` |
+| Mint | `#B3FFD9` |
+| Lavender | `#D9B3FF` |
+| Butter | `#FFF3B3` |
+| Cream | `#FAFAF0` |
+| Black | `#1A1A1A` |
 
-Do not port: relay, Mac poll loop, osascript tools, Telegram input.
+- Font: Press Start 2P (headers), Courier New (body/monospace)
+- Borders: 3px solid black, zero border-radius
+- Shadows: 5px hard offset (no blur), black
+- Title bar: blue (`#B3D9FF`) with □ — × chrome buttons
 
 ---
 
-## 8. Open questions for Alex
-1. Bundle ID prefix and Apple Developer team (paid account needed for App Groups).
-2. Calendar for events — keep `Social`?
-3. Should Claude fallback be on by default, or on-device only unless enabled?
-4. Digest day/time and archive-after days.
-5. Are LinkedIn drafts and job leads still wanted, or drop them? (They don't map to a current list.)
-6. Is "Next" the exact Reminders list name the app should write to?
+## Content Types
+
+`event` | `reminder` | `music` | `linkedin_post` | `link_save` | `software_idea` | `address` | `job_app` | `unknown`
+
+---
+
+## App Group
+
+`group.com.dumpling.app` — shared UserDefaults between Dumpling.app and DumplingShareExtension for relay URL + auth token.
+
+---
+
+## Phases
+
+### Phase 0 — iOS XcodeGen Project Setup ✅
+
+**Goal:** Buildable Xcode project with share extension that logs payload and dismisses. No relay, no networking.
+
+- [x] `ios/project.yml` — XcodeGen spec for Dumpling app + DumplingShareExtension
+- [x] `ios/DumplingApp/` — Minimal SwiftUI host app (placeholder screen)
+- [x] `ios/DumplingShareExtension/` — Updated Swift files (Y2K UI, log + dismiss, no HTTP)
+- [x] App icon from `logo/dumpling-big.png`
+- [x] `ios/README.md` — XcodeGen install + generate + signing + run instructions
+- [x] Root `CLAUDE.md` — v2 layout, build commands, v1 location
+- [x] `.gitignore` — XcodeGen/Xcode generated files
+- [x] `xcodebuild` clean build for iOS Simulator
+
+**Done when:** `xcodebuild` exits 0 for iOS Simulator. No device required.
+
+---
+
+### Phase 1 — SwiftData + App Settings UI
+
+**Goal:** Persistent local storage, settings screen for relay URL + auth token.
+
+- [ ] SwiftData models: `Item`, `RoutingRule`
+- [ ] Settings screen: relay URL, auth token fields (stored in App Group UserDefaults)
+- [ ] Share extension reads config from App Group
+- [ ] Items list screen showing recently shared content (local only)
+
+---
+
+### Phase 2 — Relay + Mac Agent
+
+**Goal:** End-to-end routing from iPhone to Mac productivity tools.
+
+- [ ] Relay server (FastAPI + Postgres) deployed on Fly.io
+- [ ] Share extension POSTs to relay on "🥟 DUMPLING IT"
+- [ ] Mac agent polls relay, calls Claude, runs osascript tools
+- [ ] Routing rules engine (substring/domain/regex) with learn-from-unknown
+- [ ] Apple tools: Reminders, Calendar, Notes, Mail
+
+---
+
+### Phase 3 — Web Dashboard
+
+**Goal:** View and manage items + rules from a browser.
+
+- [ ] Next.js dashboard at `dashboard/`
+- [ ] Auth via relay token
+- [ ] Items feed, rules editor, agent question/reply UI
+
+---
+
+### Phase 4 — Push Notifications
+
+**Goal:** Agent replies delivered to iPhone as push notifications.
+
+- [ ] APNs integration
+- [ ] Relay sends push on agent question or routing confirmation
+
+---
+
+## v1 Reference
+
+v1 (Python relay + agent + basic Swift extension) lives on the `v1` git branch and is archived at `archive/v1/` (git-ignored). Read with `git show v1:<path>`.

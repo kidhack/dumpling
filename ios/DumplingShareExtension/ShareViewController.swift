@@ -1,6 +1,5 @@
 import UIKit
 import SwiftUI
-import Social
 import UniformTypeIdentifiers
 
 /// NSExtensionViewController that hosts the SwiftUI share sheet UI.
@@ -75,12 +74,12 @@ class ShareViewController: UIViewController {
             }
         }
 
-        await vm.upload(
+        await vm.submit(
             text: extractedText,
             url: extractedURL,
             imageData: extractedImageData,
             sourceApp: sourceApp,
-            userNote: nil,   // will be set from the UI
+            userNote: nil,
             quickTag: nil
         )
     }
@@ -258,7 +257,7 @@ struct ShareSheetView: View {
     // MARK: - Actions
 
     private func sendWithNote() async {
-        await viewModel.upload(
+        await viewModel.submit(
             text: nil,
             url: nil,
             imageData: nil,

@@ -26,6 +26,24 @@ uploads/
 .vscode/
 .DS_Store
 
+# Xcode / XcodeGen generated
+ios/*.xcodeproj
+ios/*.xcworkspace
+ios/DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscheme
+*.moved-aside
+*.pbxuser
+
+# iOS build artifacts
+ios/build/
+*.ipa
+*.dSYM.zip
+
+# v1 archive (Python relay + agent)
+archive/
+
 # Xcode
 xcuserdata/
 DerivedData/
