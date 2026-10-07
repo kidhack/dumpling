@@ -21,7 +21,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   files=$(git diff-tree --no-commit-id --name-only -r "$range" 2>/dev/null || true)
   for f in $files; do
     # Block .env files (allow .env.example)
-    if [[ "$f" == ".env" || "$f" == "agent/.env" || "$f" == "relay/.env" ]] || \
+    if [[ "$f" == ".env" ]] || \
        [[ "$f" == .env* ]] || [[ "$f" == *"/.env"* ]] || [[ "$f" == *"/.env."* ]]; then
       [[ "$f" == *".env.example"* ]] && continue
       echo -e "${RED}Blocked:${NC} Pushing would expose '$f' (contains secrets)"
