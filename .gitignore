@@ -2,8 +2,6 @@
 .env
 .env.*
 !.env.example
-agent/.env
-relay/.env
 
 # Python
 __pycache__/
@@ -27,3 +25,8 @@ uploads/
 .idea/
 .vscode/
 .DS_Store
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
