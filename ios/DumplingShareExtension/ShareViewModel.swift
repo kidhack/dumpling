@@ -1,7 +1,17 @@
 import Foundation
 
+// Mirrors AppGroup.PendingItem — must stay in sync with the main app's definition.
+private struct PendingItem: Codable {
+    var contentURL: String?
+    var contentText: String?
+    var sourceApp: String?
+    var userNote: String?
+    var quickTag: String?
+    var timestamp: Date = Date()
+}
+
 /// Manages state for the share sheet UI.
-/// Phase 0: logs extracted payload to console, no network calls.
+/// Phase 1: saves extracted payload to App Group queue for the main app to import.
 @MainActor
 class ShareViewModel: ObservableObject {
 
@@ -24,16 +34,27 @@ class ShareViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        // Phase 0: log payload, no network
-        print("[Dumpling] payload:")
-        print("  url:       \(url ?? "(none)")")
-        print("  text:      \(text ?? "(none)")")
-        print("  image:     \(imageData.map { "\($0.count) bytes" } ?? "(none)")")
-        print("  sourceApp: \(sourceApp ?? "(none)")")
-        print("  note:      \(userNote ?? "(none)")")
-        print("  quickTag:  \(quickTag ?? "(none)")")
+        let item = PendingItem(
+            contentURL: url,
+            contentText: text,
+            sourceApp: sourceApp,
+            userNote: userNote,
+            quickTag: quickTag
+        )
 
-        try? await Task.sleep(nanoseconds: 400_000_000)
-        result = .success("Logged! 🥟")
+        if let defaults = UserDefaults(suiteName: "group.com.kidhack.dumpling") {
+            var queue: [PendingItem] = []
+            if let data = defaults.data(forKey: "pending_items"),
+               let existing = try? JSONDecoder().decode([PendingItem].self, from: data) {
+                queue = existing
+            }
+            queue.append(item)
+            if let encoded = try? JSONEncoder().encode(queue) {
+                defaults.set(encoded, forKey: "pending_items")
+            }
+            result = .success("Dumpling'd! 🥟")
+        } else {
+            result = .failure("App Group not configured")
+        }
     }
 }

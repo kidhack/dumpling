@@ -86,10 +86,10 @@ Mac Agent (Python + Anthropic SDK + osascript)
 
 **Goal:** Persistent local storage, settings screen for relay URL + auth token.
 
-- [ ] SwiftData models: `Item`, `RoutingRule`
-- [ ] Settings screen: relay URL, auth token fields (stored in App Group UserDefaults)
-- [ ] Share extension reads config from App Group
-- [ ] Items list screen showing recently shared content (local only)
+- [x] SwiftData models: `Item`, `RoutingRule`
+- [x] Settings screen: relay URL, auth token fields (stored in App Group UserDefaults)
+- [x] Share extension enqueues to App Group; main app imports on launch
+- [x] Items list screen showing recently shared content (local only)
 
 ---
 
