@@ -1,6 +1,6 @@
 name: Dumpling
 options:
-  bundleIdPrefix: com.dumpling  # ACCOUNT PENDING: replace with your Apple Developer team prefix
+  bundleIdPrefix: com.kidhack
   deploymentTarget:
     iOS: "18.0"
   createIntermediateGroups: true
@@ -9,7 +9,9 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     IPHONEOS_DEPLOYMENT_TARGET: "18.0"
-    DEVELOPMENT_TEAM: ""  # ACCOUNT PENDING: set your Apple Developer Team ID
+    DEVELOPMENT_TEAM: FVJVPTJ48N
+    CODE_SIGN_IDENTITY: "Apple Development"
+    CODE_SIGN_STYLE: Automatic
 
 targets:
 
@@ -37,10 +39,10 @@ targets:
       path: DumplingApp/Dumpling.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.dumpling.app
+          - group.com.kidhack.dumpling
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.dumpling.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.kidhack.dumpling
         INFOPLIST_FILE: DumplingApp/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
@@ -68,10 +70,10 @@ targets:
       path: DumplingShareExtension/DumplingShareExtension.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.dumpling.app
+          - group.com.kidhack.dumpling
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.dumpling.app.ShareExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.kidhack.dumpling.ShareExtension
         INFOPLIST_FILE: DumplingShareExtension/Info.plist
 
 schemes:
