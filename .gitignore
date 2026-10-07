@@ -30,3 +30,6 @@ uploads/
 xcuserdata/
 DerivedData/
 *.xcuserstate
+
+# Local-only archive of old versions (may contain secrets)
+archive/
