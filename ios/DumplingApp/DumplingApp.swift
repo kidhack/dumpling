@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct DumplingApp: App {
@@ -6,5 +7,6 @@ struct DumplingApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: [Item.self, RoutingRule.self])
     }
 }
