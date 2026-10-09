@@ -37,28 +37,14 @@ final class Item {
         return "(no content)"
     }
 
-    var sourceEmoji: String {
-        switch sourceApp?.lowercased() {
-        case "safari":    return "🧭"
-        case "chrome":    return "🌐"
-        case "instagram": return "📸"
-        case "spotify":   return "🎧"
-        case "linkedin":  return "💼"
-        case "twitter/x": return "🐦"
-        case "tiktok":    return "🎵"
-        case "mail":      return "📧"
-        default:          return "📥"
-        }
-    }
-
-    var tagColor: String {
+    var tagLabel: String? {
         switch quickTag {
-        case "reminder":      return "FFB3C6"
-        case "event":         return "B3D9FF"
-        case "music":         return "D9B3FF"
-        case "software_idea": return "FFF3B3"
-        case "link_save":     return "B3FFD9"
-        default:              return "FAFAF0"
+        case "reminder":      return "Reminder"
+        case "event":         return "Event"
+        case "music":         return "Music"
+        case "software_idea": return "Idea"
+        case "link_save":     return "Saved Link"
+        default:              return quickTag
         }
     }
 }

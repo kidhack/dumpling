@@ -7,24 +7,28 @@ struct ItemsListView: View {
     @Query(sort: \Item.timestamp, order: .reverse) private var items: [Item]
 
     var body: some View {
-        ZStack {
-            Color.dCream.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                titleBar
-
-                if items.isEmpty {
-                    emptyState
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
-                            ForEach(items) { item in
-                                ItemRowView(item: item)
-                            }
-                        }
-                        .padding(16)
+        NavigationStack {
+            List {
+                ForEach(items) { item in
+                    NavigationLink(value: item) {
+                        ItemRowView(item: item)
                     }
                 }
+                .onDelete(perform: delete)
+            }
+            .navigationTitle("Items")
+            .navigationDestination(for: Item.self) { ItemDetailView(item: $0) }
+            .overlay {
+                if items.isEmpty {
+                    ContentUnavailableView(
+                        "No Items Yet",
+                        systemImage: "tray",
+                        description: Text("Share something from any app to see it here.")
+                    )
+                }
+            }
+            .toolbar {
+                if !items.isEmpty { EditButton() }
             }
         }
         .onAppear(perform: importPendingItems)
@@ -33,45 +37,10 @@ struct ItemsListView: View {
         }
     }
 
-    // MARK: - Sub-views
-
-    private var titleBar: some View {
-        HStack {
-            Text("📥 RECENT DUMPS")
-                .font(.custom("Courier New", size: 11).bold())
-                .foregroundColor(.dBlack)
-            Spacer()
-            Text("\(items.count)")
-                .font(.custom("Courier New", size: 10).bold())
-                .foregroundColor(.dBlack)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.dButter)
-                .pixelBorder(width: 2)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.dBlue)
-        .overlay(Rectangle().frame(height: 3).foregroundColor(.dBlack), alignment: .bottom)
+    private func delete(at offsets: IndexSet) {
+        for index in offsets { modelContext.delete(items[index]) }
+        try? modelContext.save()
     }
-
-    private var emptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Text("🥟")
-                .font(.system(size: 48))
-            Text("NO DUMPS YET")
-                .font(.custom("Courier New", size: 14).bold())
-                .foregroundColor(.dBlack)
-            Text("Share something from any app\nto see it here.")
-                .font(.custom("Courier New", size: 11))
-                .foregroundColor(.dBlack.opacity(0.5))
-                .multilineTextAlignment(.center)
-            Spacer()
-        }
-    }
-
-    // MARK: - Queue import
 
     private func importPendingItems() {
         let pending = AppGroup.dequeueAll()
@@ -98,53 +67,63 @@ struct ItemRowView: View {
     let item: Item
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text(item.sourceEmoji)
-                .font(.system(size: 20))
-                .frame(width: 32)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(item.preview)
+                .lineLimit(2)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.preview)
-                    .font(.custom("Courier New", size: 11))
-                    .foregroundColor(.dBlack)
+            if let note = item.userNote {
+                Text(note)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
-
-                if let note = item.userNote {
-                    Text("✎ \(note)")
-                        .font(.custom("Courier New", size: 10).italic())
-                        .foregroundColor(.dBlack.opacity(0.7))
-                        .lineLimit(3)
-                }
-
-                HStack(spacing: 6) {
-                    if let tag = item.quickTag {
-                        Text(tag.uppercased())
-                            .font(.custom("Courier New", size: 8).bold())
-                            .foregroundColor(.dBlack)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Color(hex: item.tagColor))
-                            .pixelBorder(width: 1)
-                    }
-
-                    Text(item.timestamp.formatted(.relative(presentation: .named)))
-                        .font(.custom("Courier New", size: 9))
-                        .foregroundColor(.dBlack.opacity(0.5))
-                }
             }
 
-            Spacer()
-
-            statusDot
+            HStack(spacing: 6) {
+                if let tag = item.tagLabel {
+                    Text(tag)
+                }
+                Text(item.timestamp, format: .relative(presentation: .named))
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
-        .padding(10)
-        .pixelCard()
+        .padding(.vertical, 2)
     }
+}
 
-    private var statusDot: some View {
-        Circle()
-            .fill(item.status == "pending" ? Color.dButter : item.status == "routed" ? Color.dMint : Color.dPink)
-            .frame(width: 8, height: 8)
-            .overlay(Circle().stroke(Color.dBlack, lineWidth: 1))
+// MARK: - Detail
+
+struct ItemDetailView: View {
+    let item: Item
+
+    var body: some View {
+        Form {
+            if let urlString = item.contentURL {
+                Section("Link") {
+                    if let url = URL(string: urlString) {
+                        Link(urlString, destination: url)
+                    } else {
+                        Text(urlString)
+                    }
+                }
+            }
+            if let text = item.contentText {
+                Section("Text") {
+                    Text(text).textSelection(.enabled)
+                }
+            }
+            if let note = item.userNote {
+                Section("Note") {
+                    Text(note).textSelection(.enabled)
+                }
+            }
+            Section {
+                LabeledContent("Tag", value: item.tagLabel ?? "None")
+                LabeledContent("Status", value: item.status.capitalized)
+                LabeledContent("Shared", value: item.timestamp.formatted(date: .abbreviated, time: .shortened))
+            }
+        }
+        .navigationTitle("Item")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

@@ -17,7 +17,6 @@ struct ContentView: View {
                 }
                 .tag(1)
         }
-        .tint(.dBlack)
     }
 }
 

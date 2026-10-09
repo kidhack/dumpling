@@ -62,6 +62,8 @@ See `plans/plan.md` for the full roadmap.
 
 Y2K pastel neo-brutalism pixel aesthetic.
 
+**On hold:** the first pass at this style was unusable, so the app and share extension currently use stock iOS components (`List`, `Form`, `NavigationStack`). Don't reapply custom styling until it's been redesigned. The old styled UI is in commit `1d400ba`.
+
 | Color | Hex |
 |-------|-----|
 | Pink | `#FFB3C6` |
