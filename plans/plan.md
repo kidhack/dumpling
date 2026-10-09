@@ -25,7 +25,7 @@ Mac Agent (Python + Anthropic SDK + osascript)
 |---|---|---|
 | iOS app + Share Extension | Swift / SwiftUI / iOS 27 | `ios/` |
 | Relay server | FastAPI + SQLAlchemy + SQLite (Fly volume) | `relay/` |
-| Mac agent | Python + Anthropic SDK | `agent/` (Phase 2) |
+| Mac agent | Python 3.13 + Anthropic SDK + osascript | `agent/` |
 | Web dashboard | Next.js | `dashboard/` (Phase 3) |
 
 ---

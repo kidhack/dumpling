@@ -15,6 +15,7 @@ ios/                        iOS app + Share Extension
   README.md                 Build + signing instructions
 
 relay/                      FastAPI relay (phone → queue → Mac agent); see relay/README.md
+agent/                      Mac agent: claims items, asks Claude, files into Apple apps; see agent/README.md
 
 plans/
   plan.md                   v2 architecture, phases, design system
@@ -65,7 +66,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 
 ## Current phase
 
-**Phase 2** — Relay + Mac agent. The relay (`relay/`) is deployed at https://dumpling-relay.fly.dev (SQLite on a Fly volume; one machine only, deploy with `--ha=false`). The share extension uploads on Save and the app retries anything unsynced. Next: the Mac agent.
+**Phase 2** — Relay + Mac agent. The relay (`relay/`) is deployed at https://dumpling-relay.fly.dev (SQLite on a Fly volume; one machine only, deploy with `--ha=false`). The share extension uploads on Save and the app retries anything unsynced. The Mac agent (`agent/`) is written and tested offline; first live run pending.
 
 See `plans/plan.md` for the full roadmap.
 
