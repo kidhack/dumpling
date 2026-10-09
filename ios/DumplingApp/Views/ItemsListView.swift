@@ -47,6 +47,12 @@ struct ItemsListView: View {
     @Query(sort: \Item.timestamp) private var items: [Item]
 
     @State private var bottomPadding: CGFloat = 0
+    @State private var pull: CGFloat = 0
+    @State private var isDragging = false
+    @State private var isScrolling = false
+    @State private var addArmed = false
+    @State private var showingNewItem = false
+    private let addThreshold: CGFloat = 70
 
     private var visible: [Item] { items.filter(section.contains) }
 
@@ -81,6 +87,36 @@ struct ItemsListView: View {
                 let target = max(0, bottomPadding + free)
                 if abs(target - bottomPadding) > 0.5 { bottomPadding = target }
             }
+            // Pull up past the newest item to add one (Inbox only).
+            .onScrollGeometryChange(for: CGFloat.self) { geo in
+                geo.contentOffset.y + geo.containerSize.height - geo.contentInsets.bottom - geo.contentSize.height
+            } action: { _, overscroll in
+                guard section == .inbox else { return }
+                pull = max(0, overscroll)
+                if isDragging { addArmed = pull >= addThreshold }
+            }
+            .onScrollPhaseChange { oldPhase, newPhase in
+                guard section == .inbox else { return }
+                isDragging = newPhase == .interacting
+                isScrolling = newPhase != .idle
+                if oldPhase == .interacting && newPhase != .interacting {
+                    if addArmed { showingNewItem = true }
+                    addArmed = false
+                }
+            }
+            .sensoryFeedback(.impact(weight: .medium), trigger: addArmed) { _, armed in armed }
+            .overlay(alignment: .bottom) {
+                if section == .inbox && isScrolling && pull > 4 {
+                    NewCardHint(progress: min(pull / addThreshold, 1), armed: addArmed)
+                        .frame(height: max(0, min(pull - 10, 76)))
+                }
+            }
+            .accessibilityActions {
+                if section == .inbox {
+                    Button("Add Item") { showingNewItem = true }
+                }
+            }
+            .sheet(isPresented: $showingNewItem) { NewItemView() }
             // Long lists open at the newest item and stay there as items arrive.
             .defaultScrollAnchor(.bottom, for: .initialOffset)
             .defaultScrollAnchor(.bottom, for: .sizeChanges)
@@ -196,3 +232,27 @@ struct ModelUnavailableBanner: View {
     }
 }
 
+/// A new card edging in below the newest item while the user pulls up. Solid once releasing will add.
+private struct NewCardHint: View {
+    let progress: CGFloat
+    let armed: Bool
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(armed ? Color(.secondarySystemGroupedBackground) : .clear)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(.secondary.opacity(armed ? 0 : 0.6 * progress),
+                              style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+            Image(systemName: "plus")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(armed ? .primary : .secondary)
+                .opacity(progress)
+                .scaleEffect(0.6 + 0.4 * progress)
+        }
+        .padding(.horizontal, 16)
+        .animation(.snappy(duration: 0.15), value: armed)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}

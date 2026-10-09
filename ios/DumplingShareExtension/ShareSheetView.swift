@@ -26,15 +26,7 @@ struct ShareSheetView: View {
                 }
 
                 Section {
-                    HStack {
-                        ForEach(CategoryKind.allCases) { kind in
-                            TagButton(kind: kind, isSelected: selectedTag == kind) {
-                                selectedTag = selectedTag == kind ? nil : kind
-                            }
-                            if kind != CategoryKind.allCases.last { Spacer(minLength: 0) }
-                        }
-                    }
-                    .padding(.vertical, 4)
+                    CategoryButtons(selection: $selectedTag)
                 }
 
                 if let message = viewModel.errorMessage {
@@ -68,26 +60,5 @@ struct ShareSheetView: View {
         if await viewModel.save(userNote: trimmed.isEmpty ? nil : trimmed, quickTag: selectedTag?.quickTag) {
             extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
         }
-    }
-}
-
-/// A one-tap category choice. Tapping the selected one again clears it so Dumpling decides.
-private struct TagButton: View {
-    let kind: CategoryKind
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: kind.systemImage)
-                .font(.title3)
-                .foregroundStyle(isSelected ? .white : kind.tint)
-                .frame(width: 40, height: 40)
-                .background(isSelected ? kind.tint : kind.tint.opacity(0.15), in: .circle)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(kind.label)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .sensoryFeedback(.selection, trigger: isSelected)
     }
 }
