@@ -1,10 +1,10 @@
 """Dumpling relay: the phone PUTs shared items, the Mac agent claims and resolves them."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Literal, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 import config
@@ -50,6 +50,12 @@ class ItemOut(BaseModel):
     error: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+    # SQLite drops tzinfo on storage; everything is stored in UTC.
+    @field_validator("shared_at", "created_at", "updated_at")
+    @classmethod
+    def assume_utc(cls, value: datetime) -> datetime:
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
 def create_app(database_url: str = config.DATABASE_URL) -> FastAPI:

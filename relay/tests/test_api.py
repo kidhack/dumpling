@@ -46,6 +46,7 @@ def test_put_is_idempotent(app, client):
     assert first.status_code == 201
     assert first.json()["status"] == "pending"
     assert first.json()["user_note"] == "read later"
+    assert client.get("/items", headers=h).json()[0]["shared_at"] == "2026-10-09T12:00:00Z"
 
     again = put(client, h)
     assert again.status_code == 200

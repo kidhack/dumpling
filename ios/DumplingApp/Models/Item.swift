@@ -11,15 +11,17 @@ final class Item {
     var userNote: String?
     var quickTag: String?
     var status: String  // "pending" | "routed" | "failed"
+    var syncedAt: Date?
 
     init(
+        id: UUID = UUID(),
         contentURL: String? = nil,
         contentText: String? = nil,
         sourceApp: String? = nil,
         userNote: String? = nil,
         quickTag: String? = nil
     ) {
-        self.id = UUID()
+        self.id = id
         self.timestamp = Date()
         self.contentURL = contentURL
         self.contentText = contentText
@@ -30,6 +32,20 @@ final class Item {
     }
 
     // MARK: - Display helpers
+
+    /// The relay rejects items with neither a URL nor text (e.g. image-only shares).
+    var isUploadable: Bool { contentURL != nil || contentText != nil }
+
+    var syncLabel: String {
+        guard isUploadable else { return "Not supported yet" }
+        guard let syncedAt else { return "Not synced" }
+        return "Synced " + syncedAt.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    var relayPayload: RelayClient.ItemPayload {
+        .init(contentURL: contentURL, contentText: contentText, sourceApp: sourceApp,
+              userNote: userNote, quickTag: quickTag, sharedAt: timestamp)
+    }
 
     var preview: String {
         if let url = contentURL { return url }

@@ -1,10 +1,14 @@
 import SwiftUI
 import SwiftData
+import OSLog
+
+private let logger = Logger(subsystem: "com.kidhack.dumpling", category: "Sync")
 
 struct ItemsListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Item.timestamp, order: .reverse) private var items: [Item]
+    @State private var isSyncing = false
 
     var body: some View {
         NavigationStack {
@@ -31,9 +35,9 @@ struct ItemsListView: View {
                 if !items.isEmpty { EditButton() }
             }
         }
-        .onAppear(perform: importPendingItems)
+        .task { await refresh() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { importPendingItems() }
+            if phase == .active { Task { await refresh() } }
         }
     }
 
@@ -42,10 +46,16 @@ struct ItemsListView: View {
         try? modelContext.save()
     }
 
+    private func refresh() async {
+        importPendingItems()
+        await uploadUnsyncedItems()
+    }
+
     private func importPendingItems() {
         let pending = AppGroup.dequeueAll()
         for p in pending {
             let item = Item(
+                id: p.id,
                 contentURL: p.contentURL,
                 contentText: p.contentText,
                 sourceApp: p.sourceApp,
@@ -53,11 +63,30 @@ struct ItemsListView: View {
                 quickTag: p.quickTag
             )
             item.timestamp = p.timestamp
+            item.syncedAt = p.syncedAt
             modelContext.insert(item)
         }
         if !pending.isEmpty {
             try? modelContext.save()
         }
+    }
+
+    private func uploadUnsyncedItems() async {
+        guard RelayClient.isConfigured, !isSyncing else { return }
+        isSyncing = true
+        defer { isSyncing = false }
+
+        let unsynced = items.filter { $0.syncedAt == nil && $0.isUploadable }
+        for item in unsynced {
+            do {
+                try await RelayClient.upload(id: item.id, payload: item.relayPayload)
+                item.syncedAt = Date()
+            } catch {
+                logger.error("Upload failed for \(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                break
+            }
+        }
+        try? modelContext.save()
     }
 }
 
@@ -83,6 +112,11 @@ struct ItemRowView: View {
                     Text(tag)
                 }
                 Text(item.timestamp, format: .relative(presentation: .named))
+                Spacer()
+                if item.isUploadable {
+                    Image(systemName: item.syncedAt == nil ? "icloud.slash" : "checkmark.icloud")
+                        .accessibilityLabel(item.syncedAt == nil ? "Not synced" : "Synced")
+                }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -120,6 +154,7 @@ struct ItemDetailView: View {
             Section {
                 LabeledContent("Tag", value: item.tagLabel ?? "None")
                 LabeledContent("Status", value: item.status.capitalized)
+                LabeledContent("Relay", value: item.syncLabel)
                 LabeledContent("Shared", value: item.timestamp.formatted(date: .abbreviated, time: .shortened))
             }
         }

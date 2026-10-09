@@ -98,7 +98,7 @@ Mac Agent (Python + Anthropic SDK + osascript)
 **Goal:** End-to-end routing from iPhone to Mac productivity tools.
 
 - [x] Relay server (FastAPI + SQLite on a Fly volume) deployed at https://dumpling-relay.fly.dev
-- [ ] Share extension POSTs to relay on Save
+- [x] Share extension uploads to relay on Save (`PUT /items/{id}`); app retries unsynced items on foreground
 - [ ] Image sharing: the extension already activates for images but drops the image data, so items save as "(no content)". Write the image to the App Group container, reference it from the pending item, show a thumbnail in the app, and upload it to the relay.
 - [ ] Mac agent polls relay, calls Claude, runs osascript tools
 - [ ] Routing rules engine (substring/domain/regex) with learn-from-unknown

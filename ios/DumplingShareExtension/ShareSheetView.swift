@@ -42,7 +42,7 @@ struct ShareSheetView: View {
                     }
                 }
 
-                if case .failure(let message) = viewModel.result {
+                if let message = viewModel.errorMessage {
                     Section {
                         Text(message).foregroundStyle(.red)
                     }
@@ -57,17 +57,20 @@ struct ShareSheetView: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
-                        .disabled(viewModel.isExtracting)
+                    if viewModel.isSaving {
+                        ProgressView()
+                    } else {
+                        Button("Save") { Task { await save() } }
+                            .disabled(viewModel.isExtracting)
+                    }
                 }
             }
         }
     }
 
-    private func save() {
+    private func save() async {
         let trimmed = userNote.trimmingCharacters(in: .whitespacesAndNewlines)
-        viewModel.submit(userNote: trimmed.isEmpty ? nil : trimmed, quickTag: selectedTag)
-        if case .success = viewModel.result {
+        if await viewModel.save(userNote: trimmed.isEmpty ? nil : trimmed, quickTag: selectedTag) {
             extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
         }
     }

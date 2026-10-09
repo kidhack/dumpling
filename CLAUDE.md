@@ -11,6 +11,7 @@ ios/                        iOS app + Share Extension
   project.yml               XcodeGen spec (source of truth — edit this, not .xcodeproj)
   DumplingApp/              Host app (SwiftUI, iOS 27)
   DumplingShareExtension/   Share extension (UIKit + SwiftUI)
+  Shared/                   Compiled into both targets (App Group queue, relay client)
   README.md                 Build + signing instructions
 
 relay/                      FastAPI relay (phone → queue → Mac agent); see relay/README.md
@@ -64,7 +65,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 
 ## Current phase
 
-**Phase 2** — Relay + Mac agent. The relay (`relay/`) is deployed at https://dumpling-relay.fly.dev (SQLite on a Fly volume; one machine only, deploy with `--ha=false`). Next: share extension POSTs to the relay, then the Mac agent.
+**Phase 2** — Relay + Mac agent. The relay (`relay/`) is deployed at https://dumpling-relay.fly.dev (SQLite on a Fly volume; one machine only, deploy with `--ha=false`). The share extension uploads on Save and the app retries anything unsynced. Next: the Mac agent.
 
 See `plans/plan.md` for the full roadmap.
 

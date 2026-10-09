@@ -25,6 +25,7 @@ targets:
     sources:
       - path: DumplingApp
         createIntermediateGroups: true
+      - path: Shared
     resources:
       - path: DumplingApp/Assets.xcassets
     info:
@@ -56,6 +57,7 @@ targets:
     sources:
       - path: DumplingShareExtension
         createIntermediateGroups: true
+      - path: Shared
     info:
       path: DumplingShareExtension/Info.plist
       properties:
