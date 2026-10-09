@@ -64,7 +64,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 
 ## Current phase
 
-**Phase 2** — Relay + Mac agent. The relay (`relay/`) runs and is tested locally; not yet deployed to Fly.io. Next: share extension POSTs to the relay, then the Mac agent.
+**Phase 2** — Relay + Mac agent. The relay (`relay/`) is deployed at https://dumpling-relay.fly.dev (SQLite on a Fly volume; one machine only, deploy with `--ha=false`). Next: share extension POSTs to the relay, then the Mac agent.
 
 See `plans/plan.md` for the full roadmap.
 

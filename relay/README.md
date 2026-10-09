@@ -1,6 +1,8 @@
 # Dumpling Relay
 
-FastAPI + SQLAlchemy queue between the phone and the Mac agent. SQLite locally, Postgres on Fly.io.
+FastAPI + SQLAlchemy queue between the phone and the Mac agent. SQLite everywhere: a local file in dev, a 1 GB Fly volume in production (`DATABASE_URL` can point at Postgres instead).
+
+Production: https://dumpling-relay.fly.dev
 
 ## API
 
@@ -31,15 +33,17 @@ Tokens are stored as SHA-256 hashes. There is no default or dev token.
 
 ## Deploy to Fly.io
 
+The app (`dumpling-relay`) and its volume (`data`, mounted at `/data`, daily snapshots) already exist. SQLite needs exactly one machine, so always deploy with `--ha=false`:
+
 ```bash
-brew install flyctl
-fly auth login
 cd relay
-fly launch --no-deploy --copy-config      # rename the app in fly.toml if taken
-fly postgres create                        # or use any Postgres
-fly postgres attach <pg-app-name>          # sets DATABASE_URL secret
-fly deploy
-fly ssh console -C "python manage.py create-user alex"
+fly deploy --ha=false
+```
+
+Create a user token (printed once):
+
+```bash
+fly ssh console -a dumpling-relay -C "python manage.py create-user alex"
 ```
 
 Put the relay URL and token into the Dumpling app's Settings tab.

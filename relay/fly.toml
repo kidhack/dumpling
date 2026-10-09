@@ -4,6 +4,14 @@ primary_region = "sjc"
 
 [build]
 
+[env]
+  DATABASE_URL = "sqlite:////data/dumpling.db"
+
+# SQLite lives on this volume, so the app must run on exactly one machine (deploy with --ha=false).
+[mounts]
+  source = "data"
+  destination = "/data"
+
 [http_service]
   internal_port = 8080
   force_https = true

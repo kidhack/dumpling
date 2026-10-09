@@ -13,7 +13,7 @@ Personal content routing agent. Share anything from your iPhone (links, events, 
 ```
 iPhone (iOS Share Extension)
     ↓  HTTPS POST /ingest
-Hosted Relay (Fly.io — FastAPI + Postgres)
+Hosted Relay (Fly.io — FastAPI + SQLite)
     ↓  polling every 30s
 Mac Agent (Python + Anthropic SDK + osascript)
     → Apple Reminders, Calendar, Notes, Mail
@@ -24,7 +24,7 @@ Mac Agent (Python + Anthropic SDK + osascript)
 | Component | Stack | Location |
 |---|---|---|
 | iOS app + Share Extension | Swift / SwiftUI / iOS 27 | `ios/` |
-| Relay server | FastAPI + SQLAlchemy + Postgres | `relay/` (Phase 2) |
+| Relay server | FastAPI + SQLAlchemy + SQLite (Fly volume) | `relay/` |
 | Mac agent | Python + Anthropic SDK | `agent/` (Phase 2) |
 | Web dashboard | Next.js | `dashboard/` (Phase 3) |
 
@@ -97,7 +97,7 @@ Mac Agent (Python + Anthropic SDK + osascript)
 
 **Goal:** End-to-end routing from iPhone to Mac productivity tools.
 
-- [ ] Relay server (FastAPI + Postgres) deployed on Fly.io
+- [x] Relay server (FastAPI + SQLite on a Fly volume) deployed at https://dumpling-relay.fly.dev
 - [ ] Share extension POSTs to relay on Save
 - [ ] Image sharing: the extension already activates for images but drops the image data, so items save as "(no content)". Write the image to the App Group container, reference it from the pending item, show a thumbnail in the app, and upload it to the relay.
 - [ ] Mac agent polls relay, calls Claude, runs osascript tools
