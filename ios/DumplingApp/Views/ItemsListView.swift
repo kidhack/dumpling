@@ -139,44 +139,43 @@ struct ItemRowView: View {
     let section: ItemsSection
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(item.displayTitle)
-                .lineLimit(2)
+        HStack(alignment: .top, spacing: 12) {
+            CategoryIcon(item: item)
+                .padding(.top, 1)
 
-            if item.title != nil {
-                Text(item.preview)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            if let note = item.userNote {
-                Text(note)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.displayTitle)
                     .lineLimit(2)
-            }
 
-            HStack(spacing: 6) {
-                // In the inbox, "kept" is the default state, so only flag the exceptions.
-                if !(section == .inbox && item.status == "kept") {
-                    Label(item.statusLabel, systemImage: statusIcon)
+                if item.title != nil {
+                    Text(item.preview)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
-                Text(item.timestamp, format: .relative(presentation: .named))
+
+                if let note = item.userNote {
+                    Text(note)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                HStack(spacing: 6) {
+                    // "Kept" is the normal state for unfiled items, so only show where filed items went and problems.
+                    if item.status == "failed" {
+                        Label(item.statusLabel, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                    } else if item.status != "kept" {
+                        Text(item.statusLabel)
+                    }
+                    Text(item.timestamp, format: .relative(presentation: .named))
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
-    }
-
-    private var statusIcon: String {
-        switch item.status {
-        case "filed": return item.category == "event" ? "calendar" : "checklist"
-        case "kept": return "tray"
-        case "failed": return "exclamationmark.triangle"
-        default: return "hourglass"
-        }
     }
 }
 

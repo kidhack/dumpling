@@ -61,7 +61,7 @@ struct ItemDetailView: View {
             TextField("Title", text: optional(\.title))
             Picker("Category", selection: categoryBinding) {
                 ForEach([ItemCategory.event, .task, .link, .idea, .music, .other], id: \.self) {
-                    Text($0.rawValue.capitalized).tag($0)
+                    Label($0.label, systemImage: $0.systemImage).tag($0)
                 }
             }
             if category == .event || category == .task {
