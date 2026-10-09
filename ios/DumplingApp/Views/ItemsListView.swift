@@ -54,20 +54,26 @@ struct ItemsListView: View {
         NavigationStack {
             List {
                 // List ignores bottom alignment, so a clear spacer pushes short lists down onto the tab bar.
+                // It gets its own section so it never touches the first card's corners.
                 if !visible.isEmpty && bottomPadding > 0 {
-                    Color.clear
-                        .frame(height: bottomPadding)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets())
-                }
-                ForEach(visible) { item in
-                    NavigationLink(value: item) {
-                        ItemRowView(item: item, section: section)
+                    Section {
+                        Color.clear
+                            .frame(height: bottomPadding)
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets())
                     }
-                    .swipeActions(edge: .trailing) { swipeActions(for: item) }
+                }
+                // One section per item so each is its own card.
+                ForEach(visible) { item in
+                    Section {
+                        NavigationLink(value: item) {
+                            ItemRowView(item: item, section: section)
+                        }
+                        .swipeActions(edge: .trailing) { swipeActions(for: item) }
+                    }
                 }
             }
+            .listSectionSpacing(10)
             .onScrollGeometryChange(for: CGFloat.self) { geo in
                 geo.containerSize.height - geo.contentInsets.top - geo.contentInsets.bottom - geo.contentSize.height
             } action: { _, free in
