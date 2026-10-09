@@ -3,7 +3,7 @@ import SwiftUI
 /// Categories as the user sees them: label, icon and color. Shared by the share sheet's
 /// quick-tag buttons and the app's item list.
 enum CategoryKind: String, CaseIterable, Identifiable, Sendable {
-    case event, task, link, idea, music, other
+    case event, task, location, link, idea, music, other
 
     var id: Self { self }
 
@@ -11,6 +11,7 @@ enum CategoryKind: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .event: return "Event"
         case .task: return "Task"
+        case .location: return "Location"
         case .link: return "Link"
         case .idea: return "Idea"
         case .music: return "Music"
@@ -22,6 +23,7 @@ enum CategoryKind: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .event: return "calendar"
         case .task: return "checklist"
+        case .location: return "mappin.and.ellipse"
         case .link: return "link"
         case .idea: return "lightbulb"
         case .music: return "music.note"
@@ -33,6 +35,7 @@ enum CategoryKind: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .event: return .red
         case .task: return .orange
+        case .location: return .green
         case .link: return .blue
         case .idea: return .yellow
         case .music: return .pink
@@ -46,7 +49,7 @@ enum CategoryKind: String, CaseIterable, Identifiable, Sendable {
         case .task: return "reminder"
         case .link: return "link_save"
         case .idea: return "software_idea"
-        case .event, .music, .other: return rawValue
+        case .event, .location, .music, .other: return rawValue
         }
     }
 

@@ -66,7 +66,7 @@ struct ItemDetailView: View {
         // A Menu with a custom label, because a label-hidden Picker indents its menu button.
         Menu {
             Picker("Category", selection: categoryBinding) {
-                ForEach([ItemCategory.event, .task, .link, .idea, .music, .other], id: \.self) {
+                ForEach(ItemCategory.allCases, id: \.self) {
                     Label($0.label, systemImage: $0.systemImage).tag($0)
                 }
             }
@@ -95,8 +95,8 @@ struct ItemDetailView: View {
                            displayedComponents: item.isAllDay ? [.date] : [.date, .hourAndMinute])
             }
         }
-        if category == .event {
-            TextField("Location", text: optional(\.location))
+        if category == .event || category == .location {
+            TextField(category == .location ? "Address" : "Location", text: optional(\.location))
         }
     }
 

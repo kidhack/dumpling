@@ -2,13 +2,13 @@ import Foundation
 import FoundationModels
 
 @Generable
-enum ItemCategory: String {
-    case event, task, link, idea, music, other
+enum ItemCategory: String, CaseIterable {
+    case event, task, location, link, idea, music, other
 }
 
 @Generable
 struct SortDecision {
-    @Guide(description: "event: a specific happening on a date (concert, dinner, appointment). task: something the user should do (buy, call, book, reply). link: an article, video or page to read or watch later. idea: an idea or note to self. music: a song, album or artist. other: anything else.")
+    @Guide(description: "event: a specific happening on a date (concert, dinner, appointment). task: something the user should do (buy, call, book, reply). location: a place to remember or visit with no specific date (restaurant, shop, bar, park, address). link: an article, video or page to read or watch later. idea: an idea or note to self. music: a song, album or artist. other: anything else.")
     var category: ItemCategory
 
     @Guide(description: "A specific 2-6 word title. No URL. Don't start with 'Reminder to' or 'Remember to'.")
@@ -17,7 +17,7 @@ struct SortDecision {
     @Guide(description: "The date and time words exactly as written in the item, e.g. 'this Saturday 10am', 'Oct 24', 'before Friday'. Copy them; don't convert or calculate. Empty if the item has no date.")
     var datePhrase: String?
 
-    @Guide(description: "Venue or address for an event, if stated.")
+    @Guide(description: "Venue name or address for an event or location, if stated.")
     var location: String?
 }
 
@@ -27,8 +27,10 @@ enum Sorter {
         quick tag, and decide what kind of item it is. The user's note states their intent and \
         outranks your reading of the content. Resolve relative dates ("Saturday", "next week") \
         against the current time you're given. When a page title and description are given, they come from the shared link itself. \
-        A bare URL with no note asking for an action is a link, not a task. Only use date words \
-        that appear in the shared item itself, never the current time.
+        A bare URL with no note asking for an action is a link, not a task. Restaurants, cafes, \
+        bars, shops, parks and addresses are locations, even when the note says "try", "visit" or \
+        "go"; a task is an errand like call, buy, book or pay. Only use date words that appear in \
+        the shared item itself, never the current time.
         """
 
     enum Unavailable: Error {
@@ -92,8 +94,36 @@ enum Sorter {
             plan.allDay = event.allDay
             // The model's location guesses from page prose are unreliable; trust only structured venue data here.
             plan.location = event.location
+        } else if item.quickTag == nil, plan.start == nil, plan.category != .location {
+            // Undated items with a maps link or a street address are places, whatever the model said.
+            let address = detectedAddress(in: [item.contentText, item.userNote].compactMap { $0 }.joined(separator: "\n"))
+            if isMapsLink(item.contentURL) || address != nil {
+                plan.category = .location
+                plan.location = plan.location ?? address
+                // The model titled it as a task ("buy morning bun"); the place name reads better.
+                if let place = plan.location?.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespaces),
+                   !place.isEmpty, !isMapsLink(item.contentURL) {
+                    plan.title = place
+                }
+            }
         }
         return plan
+    }
+
+    static func isMapsLink(_ urlString: String?) -> Bool {
+        guard let url = urlString.flatMap(URL.init(string:)), let host = url.host()?.lowercased() else { return false }
+        return host == "maps.apple.com" || host == "maps.app.goo.gl" || host == "goo.gl" && url.path().hasPrefix("/maps")
+            || (host.hasSuffix("google.com") && url.path().hasPrefix("/maps"))
+    }
+
+    /// A street address found by Apple's data detector, if the text contains one.
+    static func detectedAddress(in text: String) -> String? {
+        guard !text.isEmpty,
+              let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.address.rawValue),
+              let match = detector.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let range = Range(match.range, in: text)
+        else { return nil }
+        return String(text[range])
     }
 
     private static let genericTitles: Set<String> = ["", "reminder", "task", "event", "link", "idea", "music", "other", "note", "website"]

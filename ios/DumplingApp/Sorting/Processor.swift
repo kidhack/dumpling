@@ -87,7 +87,7 @@ enum Processor {
             case .task:
                 result = try await filer.fileReminder(title: plan.title, notes: notes, url: url,
                                                       due: plan.start, allDay: plan.allDay)
-            case .link, .idea, .music, .other:
+            case .location, .link, .idea, .music, .other:
                 item.status = "kept"
                 return
             }

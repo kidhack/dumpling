@@ -82,7 +82,7 @@ private struct TagButton: View {
             Image(systemName: kind.systemImage)
                 .font(.title3)
                 .foregroundStyle(isSelected ? .white : kind.tint)
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 40)
                 .background(isSelected ? kind.tint : kind.tint.opacity(0.15), in: .circle)
         }
         .buttonStyle(.plain)

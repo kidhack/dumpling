@@ -71,6 +71,9 @@ if urls.isEmpty {
         Item(url: "https://github.com/yonaskolb/XcodeGen"),
         Item(text: "Call the dentist to reschedule before Friday"),
         Item(url: "https://www.eventbrite.com/e/radiohead-at-the-greek-oct-24"),
+        Item(text: "Tartine Bakery, 600 Guerrero St, San Francisco", note: "best morning bun"),
+        Item(url: "https://maps.apple.com/?q=Blue+Bottle+Coffee&address=66+Mint+St,+San+Francisco"),
+        Item(text: "Try the ramen place on Valencia next time we're in the Mission"),
     ]
     for item in cases { await show(item, page: nil) }
 } else {
