@@ -48,10 +48,9 @@ struct ItemsListView: View {
 
     @State private var bottomPadding: CGFloat = 0
     @State private var pull: CGFloat = 0
-    @State private var isDragging = false
-    @State private var isScrolling = false
-    @State private var addArmed = false
+    @State private var addTriggered = false
     @State private var showingNewItem = false
+    @State private var lastSpacerChange = Date.distantPast
     private let addThreshold: CGFloat = 70
 
     private var visible: [Item] { items.filter(section.contains) }
@@ -85,29 +84,31 @@ struct ItemsListView: View {
             } action: { _, free in
                 // `free` is measured with the current spacer included; solve for the spacer that fills it.
                 let target = max(0, bottomPadding + free)
-                if abs(target - bottomPadding) > 0.5 { bottomPadding = target }
+                if abs(target - bottomPadding) > 0.5 {
+                    bottomPadding = target
+                    lastSpacerChange = .now
+                }
             }
-            // Pull up past the newest item to add one (Inbox only).
+            // Pull up past the newest item to add one (Inbox only). List doesn't report scroll phases
+            // for this bounce, so like pull-to-refresh it triggers on crossing the threshold, not on release.
             .onScrollGeometryChange(for: CGFloat.self) { geo in
                 geo.contentOffset.y + geo.containerSize.height - geo.contentInsets.bottom - geo.contentSize.height
             } action: { _, overscroll in
                 guard section == .inbox else { return }
+                // While the bottom spacer resizes, the list briefly reads as stretched; that isn't a pull.
+                guard Date.now.timeIntervalSince(lastSpacerChange) > 0.3 else { pull = 0; return }
                 pull = max(0, overscroll)
-                if isDragging { addArmed = pull >= addThreshold }
-            }
-            .onScrollPhaseChange { oldPhase, newPhase in
-                guard section == .inbox else { return }
-                isDragging = newPhase == .interacting
-                isScrolling = newPhase != .idle
-                if oldPhase == .interacting && newPhase != .interacting {
-                    if addArmed { showingNewItem = true }
-                    addArmed = false
+                if pull >= addThreshold && !addTriggered {
+                    addTriggered = true
+                    showingNewItem = true
+                } else if pull < 10 {
+                    addTriggered = false
                 }
             }
-            .sensoryFeedback(.impact(weight: .medium), trigger: addArmed) { _, armed in armed }
+            .sensoryFeedback(.impact(weight: .medium), trigger: addTriggered) { _, triggered in triggered }
             .overlay(alignment: .bottom) {
-                if section == .inbox && isScrolling && pull > 4 {
-                    NewCardHint(progress: min(pull / addThreshold, 1), armed: addArmed)
+                if section == .inbox && pull > 4 {
+                    NewCardHint(progress: min(pull / addThreshold, 1), armed: addTriggered)
                         .frame(height: max(0, min(pull - 10, 76)))
                 }
             }
