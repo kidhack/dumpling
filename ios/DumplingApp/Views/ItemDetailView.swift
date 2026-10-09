@@ -8,6 +8,7 @@ struct ItemDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var isFiling = false
     @State private var accessRefresh = 0
+    @Environment(\.dismiss) private var dismiss
 
     private var category: ItemCategory {
         item.category.flatMap(ItemCategory.init(rawValue:)) ?? .other
@@ -15,98 +16,163 @@ struct ItemDetailView: View {
 
     var body: some View {
         Form {
-            sharedSection
-            if item.isFiled {
-                filedSection
-            } else {
-                editSection
-                actionsSection
-            }
             Section {
+                sharedRows
+                if item.isFiled {
+                    filedRows
+                } else {
+                    detailRows
+                }
                 LabeledContent("Shared", value: item.timestamp.formatted(date: .abbreviated, time: .shortened))
                 if RelayClient.isConfigured {
                     LabeledContent("Relay", value: item.syncLabel)
                 }
+            } footer: {
+                if let error = item.sortError, !item.isFiled {
+                    Text(error)
+                }
             }
+            .id(accessRefresh)
+
+            buttons
         }
         .navigationTitle(item.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { try? modelContext.save() }
     }
 
-    // MARK: - Shared content
+    // MARK: - Rows
 
-    private var sharedSection: some View {
-        Section("Shared") {
-            if let urlString = item.contentURL {
-                if let url = URL(string: urlString) {
-                    Link(urlString, destination: url).lineLimit(2)
-                } else {
-                    Text(urlString)
-                }
+    @ViewBuilder
+    private var sharedRows: some View {
+        if let urlString = item.contentURL {
+            if let url = URL(string: urlString) {
+                Link(urlString, destination: url).lineLimit(2)
+            } else {
+                Text(urlString)
             }
-            if let text = item.contentText {
-                Text(text).textSelection(.enabled)
+        }
+        if let text = item.contentText {
+            Text(text).textSelection(.enabled)
+        }
+        TextField("Note", text: optional(\.userNote), axis: .vertical)
+            .lineLimit(1...5)
+            .disabled(item.isFiled)
+    }
+
+    @ViewBuilder
+    private var detailRows: some View {
+        TextField("Title", text: optional(\.title))
+        Picker("Category", selection: categoryBinding) {
+            ForEach([ItemCategory.event, .task, .link, .idea, .music, .other], id: \.self) {
+                Label($0.label, systemImage: $0.systemImage).tag($0)
             }
-            TextField("Note", text: optional(\.userNote), axis: .vertical)
-                .lineLimit(1...5)
-                .disabled(item.isFiled)
+        }
+        if category == .event || category == .task {
+            Toggle(category == .event ? "Date" : "Due Date", isOn: hasDate)
+            if item.relevantDate != nil {
+                Toggle("All Day", isOn: $item.isAllDay)
+                DatePicker(category == .event ? "Starts" : "Due", selection: dateBinding,
+                           displayedComponents: item.isAllDay ? [.date] : [.date, .hourAndMinute])
+            }
+        }
+        if category == .event {
+            TextField("Location", text: optional(\.location))
         }
     }
 
-    // MARK: - Editing (open items)
-
-    private var editSection: some View {
-        Section {
-            TextField("Title", text: optional(\.title))
-            Picker("Category", selection: categoryBinding) {
-                ForEach([ItemCategory.event, .task, .link, .idea, .music, .other], id: \.self) {
-                    Label($0.label, systemImage: $0.systemImage).tag($0)
+    @ViewBuilder
+    private var filedRows: some View {
+        let live = item.eventKitID.flatMap(filer.calendarItem(id:))
+        LabeledContent("Filed", value: item.filedTo ?? "")
+        if let event = live as? EKEvent {
+            NavigationLink {
+                EventView(event: event)
+                    .navigationTitle(event.title ?? "Event")
+                    .navigationBarTitleDisplayMode(.inline)
+            } label: {
+                Label {
+                    VStack(alignment: .leading) {
+                        Text(event.title ?? item.displayTitle)
+                        Text(event.startDate.formatted(date: .abbreviated, time: event.isAllDay ? .omitted : .shortened))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "calendar")
                 }
             }
-            if category == .event || category == .task {
-                Toggle(category == .event ? "Date" : "Due Date", isOn: hasDate)
-                if item.relevantDate != nil {
-                    Toggle("All Day", isOn: $item.isAllDay)
-                    DatePicker(category == .event ? "Starts" : "Due", selection: dateBinding,
-                               displayedComponents: item.isAllDay ? [.date] : [.date, .hourAndMinute])
+        } else if let reminder = live as? EKReminder {
+            ReminderRow(reminder: reminder, store: filer.store, fallbackTitle: item.displayTitle)
+        } else if !filer.canRead(entityType) {
+            Button("Allow Access to Show It") {
+                Task {
+                    _ = await filer.requestReadAccess(entityType)
+                    accessRefresh += 1
                 }
             }
-            if category == .event {
-                TextField("Location", text: optional(\.location))
-            }
-        } header: {
-            Text("Details")
-        } footer: {
-            if let error = item.sortError {
-                Text(error)
-            }
+        } else {
+            Text("It's no longer in Calendar or Reminders. It may have been deleted.")
+                .foregroundStyle(.secondary)
         }
     }
 
-    private var actionsSection: some View {
-        Section {
-            if category == .event || category == .task {
-                Button {
-                    Task { await fileNow() }
-                } label: {
-                    HStack {
-                        Text(category == .event ? "Add to Calendar" : "Add to Reminders")
-                        if isFiling { Spacer(); ProgressView() }
+    // MARK: - Buttons
+
+    private var isMissingFromCalendar: Bool {
+        item.isFiled && filer.canRead(entityType) && item.eventKitID.flatMap(filer.calendarItem(id:)) == nil
+    }
+
+    @ViewBuilder
+    private var buttons: some View {
+        let showFile = !item.isFiled && (category == .event || category == .task)
+        let showArchive = !item.isFiled || isMissingFromCalendar
+        if showFile || showArchive {
+            Section {
+                VStack(spacing: 10) {
+                    if showFile {
+                        Button {
+                            Task { await fileNow() }
+                        } label: {
+                            HStack {
+                                Text(category == .event ? "Add to Calendar" : "Add to Reminders")
+                                if isFiling { ProgressView() }
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isFiling || (category == .event && item.relevantDate == nil))
+                    }
+                    if isMissingFromCalendar {
+                        Button {
+                            item.status = "kept"
+                            item.eventKitID = nil
+                            item.filedTo = nil
+                        } label: {
+                            Text("Move to Inbox").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    } else if item.isArchived {
+                        Button {
+                            item.archivedAt = nil
+                            dismiss()
+                        } label: {
+                            Text("Move to Inbox").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        Button {
+                            item.archivedAt = .now
+                            dismiss()
+                        } label: {
+                            Label("Archive", systemImage: "archivebox").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
                     }
                 }
-                .disabled(isFiling || (category == .event && item.relevantDate == nil))
+                .controlSize(.large)
             }
-            Button("Sort Again") {
-                item.status = "pending"
-                item.sortError = nil
-                item.archivedAt = nil
-            }
-            if item.isArchived {
-                Button("Move to Inbox") { item.archivedAt = nil }
-            } else {
-                Button("Archive") { item.archivedAt = .now }
-            }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
         }
     }
 
@@ -115,53 +181,6 @@ struct ItemDetailView: View {
         defer { isFiling = false }
         await Processor.fileNow(item, filer: filer)
         try? modelContext.save()
-    }
-
-    // MARK: - Filed items
-
-    @ViewBuilder
-    private var filedSection: some View {
-        let live = item.eventKitID.flatMap(filer.calendarItem(id:))
-        Section {
-            LabeledContent("Filed", value: item.filedTo ?? "")
-            if let event = live as? EKEvent {
-                NavigationLink {
-                    EventView(event: event)
-                        .navigationTitle(event.title ?? "Event")
-                        .navigationBarTitleDisplayMode(.inline)
-                } label: {
-                    Label {
-                        VStack(alignment: .leading) {
-                            Text(event.title ?? item.displayTitle)
-                            Text(event.startDate.formatted(date: .abbreviated, time: event.isAllDay ? .omitted : .shortened))
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "calendar")
-                    }
-                }
-            } else if let reminder = live as? EKReminder {
-                ReminderRow(reminder: reminder, store: filer.store, fallbackTitle: item.displayTitle)
-            } else if !filer.canRead(entityType) {
-                Button("Allow Access to Show It") {
-                    Task {
-                        _ = await filer.requestReadAccess(entityType)
-                        accessRefresh += 1
-                    }
-                }
-            } else {
-                Text("It's no longer in Calendar or Reminders. It may have been deleted.")
-                    .foregroundStyle(.secondary)
-                Button("Move to Inbox") {
-                    item.status = "kept"
-                    item.eventKitID = nil
-                    item.filedTo = nil
-                }
-            }
-        } header: {
-            Text("Calendar & Reminders")
-        }
-        .id(accessRefresh)
     }
 
     private var entityType: EKEntityType {
