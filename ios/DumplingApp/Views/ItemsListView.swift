@@ -46,11 +46,21 @@ struct ItemsListView: View {
     /// Oldest first, so the newest item sits at the bottom, near your thumb.
     @Query(sort: \Item.timestamp) private var items: [Item]
 
+    @State private var bottomPadding: CGFloat = 0
+
     private var visible: [Item] { items.filter(section.contains) }
 
     var body: some View {
         NavigationStack {
             List {
+                // List ignores bottom alignment, so a clear spacer pushes short lists down onto the tab bar.
+                if !visible.isEmpty && bottomPadding > 0 {
+                    Color.clear
+                        .frame(height: bottomPadding)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets())
+                }
                 ForEach(visible) { item in
                     NavigationLink(value: item) {
                         ItemRowView(item: item, section: section)
@@ -58,7 +68,16 @@ struct ItemsListView: View {
                     .swipeActions(edge: .trailing) { swipeActions(for: item) }
                 }
             }
-            .defaultScrollAnchor(.bottom)
+            .onScrollGeometryChange(for: CGFloat.self) { geo in
+                geo.containerSize.height - geo.contentInsets.top - geo.contentInsets.bottom - geo.contentSize.height
+            } action: { _, free in
+                // `free` is measured with the current spacer included; solve for the spacer that fills it.
+                let target = max(0, bottomPadding + free)
+                if abs(target - bottomPadding) > 0.5 { bottomPadding = target }
+            }
+            // Long lists open at the newest item and stay there as items arrive.
+            .defaultScrollAnchor(.bottom, for: .initialOffset)
+            .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .safeAreaInset(edge: .top) {
                 if section == .inbox, let reason = pipeline.modelUnavailable {
                     ModelUnavailableBanner(reason: reason)
@@ -66,6 +85,7 @@ struct ItemsListView: View {
                 }
             }
             .navigationTitle(section.rawValue)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: pipeline.filer) }
             .overlay {
                 if visible.isEmpty {

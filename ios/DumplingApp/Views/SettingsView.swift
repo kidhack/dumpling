@@ -27,6 +27,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .toolbar(.hidden, for: .navigationBar)
             .onChange(of: relayURL) { _, value in
                 AppGroup.relayURL = value.trimmingCharacters(in: .whitespacesAndNewlines)
             }
