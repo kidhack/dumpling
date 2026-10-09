@@ -7,6 +7,7 @@ struct ItemDetailView: View {
     let filer: Filer
     @Environment(\.modelContext) private var modelContext
     @State private var isFiling = false
+    @State private var accessRefresh = 0
 
     private var category: ItemCategory {
         item.category.flatMap(ItemCategory.init(rawValue:)) ?? .other
@@ -141,6 +142,13 @@ struct ItemDetailView: View {
                 }
             } else if let reminder = live as? EKReminder {
                 ReminderRow(reminder: reminder, store: filer.store, fallbackTitle: item.displayTitle)
+            } else if !filer.canRead(entityType) {
+                Button("Allow Access to Show It") {
+                    Task {
+                        _ = await filer.requestReadAccess(entityType)
+                        accessRefresh += 1
+                    }
+                }
             } else {
                 Text("It's no longer in Calendar or Reminders. It may have been deleted.")
                     .foregroundStyle(.secondary)
@@ -153,6 +161,11 @@ struct ItemDetailView: View {
         } header: {
             Text("Calendar & Reminders")
         }
+        .id(accessRefresh)
+    }
+
+    private var entityType: EKEntityType {
+        category == .event ? .event : .reminder
     }
 
     // MARK: - Bindings

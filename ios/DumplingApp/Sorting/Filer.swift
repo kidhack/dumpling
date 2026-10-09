@@ -120,6 +120,19 @@ final class Filer {
 
     // MARK: - Lookup
 
+    /// Reading items back needs full access; add-only calendar access can't see them.
+    func canRead(_ type: EKEntityType) -> Bool {
+        EKEventStore.authorizationStatus(for: type) == .fullAccess
+    }
+
+    func requestReadAccess(_ type: EKEntityType) async -> Bool {
+        switch type {
+        case .event: return (try? await store.requestFullAccessToEvents()) ?? false
+        case .reminder: return (try? await store.requestFullAccessToReminders()) ?? false
+        @unknown default: return false
+        }
+    }
+
     /// The live event or reminder an item was filed as, or nil if it was deleted.
     func calendarItem(id: String) -> EKCalendarItem? {
         store.calendarItem(withIdentifier: id)
