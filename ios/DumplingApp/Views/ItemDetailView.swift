@@ -17,6 +17,9 @@ struct ItemDetailView: View {
     var body: some View {
         Form {
             Section {
+                if !item.isFiled {
+                    TextField("Title", text: optional(\.title))
+                }
                 sharedRows
                 if item.isFiled {
                     filedRows
@@ -62,7 +65,6 @@ struct ItemDetailView: View {
 
     @ViewBuilder
     private var detailRows: some View {
-        TextField("Title", text: optional(\.title))
         Picker("Category", selection: categoryBinding) {
             ForEach([ItemCategory.event, .task, .link, .idea, .music, .other], id: \.self) {
                 Label($0.label, systemImage: $0.systemImage).tag($0)
