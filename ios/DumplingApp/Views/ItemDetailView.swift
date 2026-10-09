@@ -63,12 +63,28 @@ struct ItemDetailView: View {
 
     @ViewBuilder
     private var detailRows: some View {
-        Picker("Category", selection: categoryBinding) {
-            ForEach([ItemCategory.event, .task, .link, .idea, .music, .other], id: \.self) {
-                Label($0.label, systemImage: $0.systemImage).tag($0)
+        // A Menu with a custom label, because a label-hidden Picker indents its menu button.
+        Menu {
+            Picker("Category", selection: categoryBinding) {
+                ForEach([ItemCategory.event, .task, .link, .idea, .music, .other], id: \.self) {
+                    Label($0.label, systemImage: $0.systemImage).tag($0)
+                }
             }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: category.systemImage)
+                    .foregroundStyle(category.tint)
+                    .frame(width: 22)
+                Text(category.label)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .contentShape(.rect)
         }
-        .labelsHidden()
+        .accessibilityLabel("Category: \(category.label)")
         if category == .event || category == .task {
             Toggle(category == .event ? "Date" : "Due Date", isOn: hasDate)
             if item.relevantDate != nil {
