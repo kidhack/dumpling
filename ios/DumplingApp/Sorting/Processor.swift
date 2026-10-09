@@ -17,9 +17,14 @@ enum Processor {
                 continue
             }
 
+            var page: PageInfo?
+            if let url = item.contentURL.flatMap(URL.init(string:)) {
+                page = await PageReader.fetch(url)
+            }
+
             let decision: SortDecision
             do {
-                decision = try await Sorter.sort(prompt: Sorter.describe(item), quickTag: item.quickTag)
+                decision = try await Sorter.sort(prompt: Sorter.describe(item, page: page), quickTag: item.quickTag)
             } catch Sorter.Unavailable.model(let reason) {
                 return reason
             } catch let error as LanguageModelSession.GenerationError {
@@ -36,43 +41,39 @@ enum Processor {
                 continue
             }
 
-            let allDay = apply(decision, to: item)
-            await file(item, decision: decision, allDay: allDay, filer: filer)
+            let plan = Sorter.plan(decision, item: item, page: page)
+            record(plan, on: item, pageEvent: page?.event != nil)
+            await file(item, plan: plan, filer: filer)
         }
         return nil
     }
 
-    /// Records the decision on the item. Returns whether the resolved date is all-day.
-    @discardableResult
-    static func apply(_ decision: SortDecision, to item: Item) -> Bool {
-        let resolved = Sorter.resolveDate(Sorter.grounded(decision.datePhrase, in: Sorter.sharedText(of: item)))
-        item.category = decision.category.rawValue
-        item.title = Sorter.cleanTitle(decision.title, for: item)
-        item.relevantDate = resolved?.date
+    private static func record(_ plan: Sorter.Plan, on item: Item, pageEvent: Bool) {
+        item.category = plan.category.rawValue
+        item.title = plan.title
+        item.relevantDate = plan.start
         item.sortError = nil
-        logger.info("Sorted \(item.id, privacy: .public) as \(decision.category.rawValue, privacy: .public), datePhrase=\(decision.datePhrase ?? "none", privacy: .public)")
-        return resolved?.allDay ?? true
+        logger.info("Sorted \(item.id, privacy: .public) as \(plan.category.rawValue, privacy: .public), start=\(plan.start?.description ?? "none", privacy: .public), fromPageData=\(pageEvent)")
     }
 
-    private static func file(_ item: Item, decision: SortDecision, allDay: Bool, filer: Filer) async {
+    private static func file(_ item: Item, plan: Sorter.Plan, filer: Filer) async {
         let notes = [item.contentURL, item.userNote, item.contentText].compactMap { $0 }.joined(separator: "\n")
         let url = item.contentURL.flatMap(URL.init(string:))
-        let title = item.title ?? decision.title
 
         do {
             let result: (place: String, id: String)
-            switch decision.category {
+            switch plan.category {
             case .event:
-                guard let start = item.relevantDate else {
+                guard let start = plan.start else {
                     item.status = "kept"
                     item.sortError = "Looks like an event, but no date was found."
                     return
                 }
-                result = try await filer.fileEvent(title: title, notes: notes, url: url, start: start,
-                                                   allDay: allDay, location: decision.location)
+                result = try await filer.fileEvent(title: plan.title, notes: notes, url: url, start: start,
+                                                   end: plan.end, allDay: plan.allDay, location: plan.location)
             case .task:
-                result = try await filer.fileReminder(title: title, notes: notes, url: url,
-                                                      due: item.relevantDate, allDay: allDay)
+                result = try await filer.fileReminder(title: plan.title, notes: notes, url: url,
+                                                      due: plan.start, allDay: plan.allDay)
             case .link, .idea, .music, .other:
                 item.status = "kept"
                 return

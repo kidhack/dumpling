@@ -38,7 +38,7 @@ final class Filer {
         return ("Reminders › \(list.title)", reminder.calendarItemIdentifier)
     }
 
-    func fileEvent(title: String, notes: String, url: URL?, start: Date, allDay: Bool, location: String?) async throws -> (place: String, id: String) {
+    func fileEvent(title: String, notes: String, url: URL?, start: Date, end: Date?, allDay: Bool, location: String?) async throws -> (place: String, id: String) {
         guard try await store.requestWriteOnlyAccessToEvents() else { throw FilerError.calendarDenied }
         guard let calendar = store.defaultCalendarForNewEvents else { throw FilerError.noDefaultCalendar }
         let event = EKEvent(eventStore: store)
@@ -49,7 +49,7 @@ final class Filer {
         event.location = location
         event.isAllDay = allDay
         event.startDate = start
-        event.endDate = allDay ? start : start.addingTimeInterval(2 * 60 * 60)
+        event.endDate = end ?? (allDay ? start : start.addingTimeInterval(2 * 60 * 60))
         try store.save(event, span: .thisEvent, commit: true)
         return ("Calendar › \(calendar.title)", event.calendarItemIdentifier)
     }

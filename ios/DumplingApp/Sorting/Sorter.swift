@@ -26,7 +26,7 @@ enum Sorter {
         You sort things the user shared from their phone. Read the URL, text, the user's note and \
         quick tag, and decide what kind of item it is. The user's note states their intent and \
         outranks your reading of the content. Resolve relative dates ("Saturday", "next week") \
-        against the current time you're given. You can't open links; judge from the URL and text. \
+        against the current time you're given. When a page title and description are given, they come from the shared link itself. \
         A bare URL with no note asking for an action is a link, not a task. Only use date words \
         that appear in the shared item itself, never the current time.
         """
@@ -40,9 +40,11 @@ enum Sorter {
         return nil
     }
 
-    static func describe(_ item: Item, now: Date = .now) -> String {
+    static func describe(_ item: Item, page: PageInfo? = nil, now: Date = .now) -> String {
         var lines = ["Current local time: \(now.formatted(.dateTime.weekday(.wide).year().month().day().hour().minute()))"]
         if let url = item.contentURL { lines.append("URL: \(url)") }
+        if let title = page?.title { lines.append("Page title: \(title)") }
+        if let description = page?.description { lines.append("Page description: \(description.prefix(600))") }
         if let text = item.contentText { lines.append("Text: \(text)") }
         if let note = item.userNote { lines.append("User's note: \(note)") }
         if let tag = item.tagLabel { lines.append("Quick tag chosen by user: \(tag)") }
@@ -74,6 +76,33 @@ enum Sorter {
         options: [.caseInsensitive]
     )
 
+    /// What to file, after combining the model's decision with the page's own structured data.
+    struct Plan: Equatable {
+        var category: ItemCategory
+        var title: String
+        var start: Date?
+        var end: Date?
+        var allDay: Bool
+        var location: String?
+    }
+
+    static func plan(_ decision: SortDecision, item: Item, page: PageInfo?) -> Plan {
+        let resolved = resolveDate(grounded(decision.datePhrase, in: sharedText(of: item, page: page)))
+        var plan = Plan(category: decision.category, title: cleanTitle(decision.title, for: item),
+                        start: resolved?.date, end: nil, allDay: resolved?.allDay ?? true,
+                        location: decision.location)
+        // A page's structured event data is exact; it beats the model unless the user tagged the item otherwise.
+        if let event = page?.event, (category(forTag: item.quickTag) ?? .event) == .event {
+            plan.category = .event
+            plan.start = event.start
+            plan.end = event.end
+            plan.allDay = event.allDay
+            // The model's location guesses from page prose are unreliable; trust only structured venue data here.
+            plan.location = event.location
+        }
+        return plan
+    }
+
     private static let genericTitles: Set<String> = ["", "reminder", "task", "event", "link", "idea", "music", "other", "note", "website"]
 
     /// The small model sometimes titles an item with its category; use the site or text instead.
@@ -88,8 +117,8 @@ enum Sorter {
     }
 
     /// The text the user actually shared. URL separators become spaces so "oct-24" matches "Oct 24".
-    static func sharedText(of item: Item) -> String {
-        [item.contentURL, item.contentText, item.userNote]
+    static func sharedText(of item: Item, page: PageInfo? = nil) -> String {
+        [item.contentURL, item.contentText, item.userNote, page?.title, page?.description]
             .compactMap { $0 }
             .joined(separator: " ")
             .replacingOccurrences(of: #"[-_/+.]"#, with: " ", options: .regularExpression)

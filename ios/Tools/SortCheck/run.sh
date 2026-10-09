@@ -3,5 +3,5 @@
 set -e
 cd "$(dirname "$0")"
 OUT="${TMPDIR:-/tmp}/dumpling-sortcheck"
-swiftc -o "$OUT" ../../DumplingApp/Sorting/Sorter.swift stub.swift main.swift
-"$OUT"
+swiftc -o "$OUT" ../../DumplingApp/Sorting/Sorter.swift ../../DumplingApp/Sorting/PageReader.swift stub.swift main.swift
+"$OUT" "$@"
