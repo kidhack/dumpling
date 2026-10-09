@@ -48,12 +48,6 @@ final class Item {
     /// The relay rejects items with neither a URL nor text (e.g. image-only shares).
     var isUploadable: Bool { contentURL != nil || contentText != nil }
 
-    var syncLabel: String {
-        guard isUploadable else { return "Not supported yet" }
-        guard let syncedAt else { return "Not synced" }
-        return "Synced " + syncedAt.formatted(date: .abbreviated, time: .shortened)
-    }
-
     var relayPayload: RelayClient.ItemPayload {
         .init(contentURL: contentURL, contentText: contentText, sourceApp: sourceApp,
               userNote: userNote, quickTag: quickTag, sharedAt: timestamp)

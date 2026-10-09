@@ -27,9 +27,6 @@ struct ItemDetailView: View {
                     detailRows
                 }
                 LabeledContent("Shared", value: item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                if RelayClient.isConfigured {
-                    LabeledContent("Relay", value: item.syncLabel)
-                }
             } footer: {
                 if let error = item.sortError, !item.isFiled {
                     Text(error)
