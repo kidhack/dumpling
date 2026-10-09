@@ -108,6 +108,9 @@ Verified against the iOS 27 SDK (`FoundationModels.swiftinterface`): `SystemLang
 - [x] The user's note and quick tag override the model
 - [x] EventKit: reminders into a "Dumpling" list, events into the default calendar for new events; store the EventKit identifier on the item
 - [x] Links, ideas and anything unclear stay in Dumpling's list (iOS apps can't write Apple Notes)
+- [x] Shared pages are read while sorting: schema.org Event data, embedded `startDate` (Partiful), and title/description as model context
+- [x] Inbox / Filed / Archived. Filed items link to the live event (EventKitUI, editable) or reminder (complete in place); open items are editable and can be filed by hand
+- [x] Duplicate check before filing: same link or a similar title within an hour (events), same link or title (incomplete reminders). Uses full calendar access
 - [ ] Rules engine (substring / domain) before the model, learned from the user's corrections
 - [ ] Image sharing: the extension activates for images but drops the image data, so items save as "(no content)". Write the image to the App Group container, reference it from the pending item, and show a thumbnail
 - [x] ~~Relay server~~ (parked): deployed at https://dumpling-relay.fly.dev; the share extension still uploads to it if Settings has a URL and token

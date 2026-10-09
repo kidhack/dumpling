@@ -21,6 +21,9 @@ final class Item {
     var filedTo: String?
     var eventKitID: String?
     var sortError: String?
+    var location: String?
+    var isAllDay: Bool = false
+    var archivedAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -69,6 +72,11 @@ final class Item {
     }
 
     var categoryLabel: String? { category?.capitalized }
+
+    var isFiled: Bool { status == "filed" }
+    var isArchived: Bool { archivedAt != nil }
+    /// Open items: not filed, not archived.
+    var isInInbox: Bool { !isFiled && !isArchived }
 
     var preview: String {
         if let url = contentURL { return url }

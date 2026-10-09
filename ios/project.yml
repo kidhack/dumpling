@@ -40,7 +40,7 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         NSRemindersFullAccessUsageDescription: Dumpling adds the tasks you share to a "Dumpling" list in Reminders.
-        NSCalendarsWriteOnlyAccessUsageDescription: Dumpling adds the events you share to your calendar.
+        NSCalendarsFullAccessUsageDescription: Dumpling adds the events you share to your calendar, checks for ones you've already added so it doesn't duplicate them, and links to them.
     entitlements:
       path: DumplingApp/Dumpling.entitlements
       properties:

@@ -52,8 +52,21 @@ enum Processor {
         item.category = plan.category.rawValue
         item.title = plan.title
         item.relevantDate = plan.start
+        item.isAllDay = plan.allDay
+        item.location = plan.location
         item.sortError = nil
         logger.info("Sorted \(item.id, privacy: .public) as \(plan.category.rawValue, privacy: .public), start=\(plan.start?.description ?? "none", privacy: .public), fromPageData=\(pageEvent)")
+    }
+
+    /// Files an item the user edited, using its current fields.
+    static func fileNow(_ item: Item, filer: Filer) async {
+        let plan = Sorter.Plan(
+            category: item.category.flatMap(ItemCategory.init(rawValue:)) ?? .other,
+            title: item.displayTitle, start: item.relevantDate, end: nil,
+            allDay: item.isAllDay, location: item.location
+        )
+        item.sortError = nil
+        await file(item, plan: plan, filer: filer)
     }
 
     private static func file(_ item: Item, plan: Sorter.Plan, filer: Filer) async {
@@ -61,7 +74,7 @@ enum Processor {
         let url = item.contentURL.flatMap(URL.init(string:))
 
         do {
-            let result: (place: String, id: String)
+            let result: Filer.Result
             switch plan.category {
             case .event:
                 guard let start = plan.start else {
@@ -79,8 +92,9 @@ enum Processor {
                 return
             }
             item.status = "filed"
-            item.filedTo = result.place
+            item.filedTo = result.alreadyExisted ? "Already in \(result.place)" : result.place
             item.eventKitID = result.id
+            item.archivedAt = nil
         } catch {
             logger.error("Filing failed for \(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
             item.status = "failed"

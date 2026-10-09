@@ -5,43 +5,78 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.kidhack.dumpling", category: "Sync")
 
+enum ItemsSection: String, CaseIterable, Identifiable {
+    case inbox = "Inbox", filed = "Filed", archived = "Archived"
+    var id: Self { self }
+
+    func contains(_ item: Item) -> Bool {
+        switch self {
+        case .inbox: return item.isInInbox
+        case .filed: return item.isFiled
+        case .archived: return item.isArchived && !item.isFiled
+        }
+    }
+
+    var emptyTitle: String {
+        switch self {
+        case .inbox: return "Inbox Zero"
+        case .filed: return "Nothing Filed Yet"
+        case .archived: return "No Archived Items"
+        }
+    }
+
+    var emptyMessage: String {
+        switch self {
+        case .inbox: return "Share something from any app. Events and tasks are filed automatically; everything else lands here."
+        case .filed: return "Items added to Calendar or Reminders show up here."
+        case .archived: return "Swipe an inbox item to archive it."
+        }
+    }
+}
+
 struct ItemsListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Item.timestamp, order: .reverse) private var items: [Item]
+    @State private var section: ItemsSection = .inbox
     @State private var isSyncing = false
     @State private var isSorting = false
     @State private var modelUnavailable: SystemLanguageModel.Availability.UnavailableReason?
     @State private var filer = Filer()
 
+    private var visible: [Item] { items.filter(section.contains) }
+
     var body: some View {
         NavigationStack {
             List {
-                ForEach(items) { item in
+                ForEach(visible) { item in
                     NavigationLink(value: item) {
                         ItemRowView(item: item)
                     }
+                    .swipeActions(edge: .trailing) { swipeActions(for: item) }
                 }
-                .onDelete(perform: delete)
             }
             .safeAreaInset(edge: .top) {
-                if let reason = modelUnavailable {
-                    ModelUnavailableBanner(reason: reason)
+                VStack(spacing: 8) {
+                    Picker("Section", selection: $section) {
+                        ForEach(ItemsSection.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    if let reason = modelUnavailable {
+                        ModelUnavailableBanner(reason: reason)
+                    }
                 }
+                .padding(.bottom, 4)
+                .background(.bar)
             }
-            .navigationTitle("Items")
-            .navigationDestination(for: Item.self) { ItemDetailView(item: $0) }
+            .navigationTitle("Dumpling")
+            .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: filer) }
             .overlay {
-                if items.isEmpty {
-                    ContentUnavailableView(
-                        "No Items Yet",
-                        systemImage: "tray",
-                        description: Text("Share something from any app to see it here.")
-                    )
+                if visible.isEmpty {
+                    ContentUnavailableView(section.emptyTitle, systemImage: "tray",
+                                           description: Text(section.emptyMessage))
                 }
-            }
-            .toolbar {
-                if !items.isEmpty { EditButton() }
             }
         }
         .onAppear { Task { await refresh() } }
@@ -50,9 +85,31 @@ struct ItemsListView: View {
         }
     }
 
-    private func delete(at offsets: IndexSet) {
-        for index in offsets { modelContext.delete(items[index]) }
-        try? modelContext.save()
+    @ViewBuilder
+    private func swipeActions(for item: Item) -> some View {
+        Button(role: .destructive) {
+            modelContext.delete(item)
+            try? modelContext.save()
+        } label: {
+            Label(item.isFiled ? "Remove" : "Delete", systemImage: "trash")
+        }
+        if item.isInInbox {
+            Button {
+                item.archivedAt = .now
+                try? modelContext.save()
+            } label: {
+                Label("Archive", systemImage: "archivebox")
+            }
+            .tint(.indigo)
+        } else if item.isArchived && !item.isFiled {
+            Button {
+                item.archivedAt = nil
+                try? modelContext.save()
+            } label: {
+                Label("Inbox", systemImage: "tray.and.arrow.up")
+            }
+            .tint(.blue)
+        }
     }
 
     private func refresh() async {
@@ -178,59 +235,3 @@ struct ModelUnavailableBanner: View {
     }
 }
 
-// MARK: - Detail
-
-struct ItemDetailView: View {
-    let item: Item
-
-    var body: some View {
-        Form {
-            if let urlString = item.contentURL {
-                Section("Link") {
-                    if let url = URL(string: urlString) {
-                        Link(urlString, destination: url)
-                    } else {
-                        Text(urlString)
-                    }
-                }
-            }
-            if let text = item.contentText {
-                Section("Text") {
-                    Text(text).textSelection(.enabled)
-                }
-            }
-            if let note = item.userNote {
-                Section("Note") {
-                    Text(note).textSelection(.enabled)
-                }
-            }
-            Section("Sorting") {
-                LabeledContent("Status", value: item.statusLabel)
-                if let category = item.categoryLabel {
-                    LabeledContent("Category", value: category)
-                }
-                if let date = item.relevantDate {
-                    LabeledContent("Date", value: date.formatted(date: .abbreviated, time: .shortened))
-                }
-                LabeledContent("Tag", value: item.tagLabel ?? "None")
-                if let error = item.sortError {
-                    Text(error).foregroundStyle(.secondary)
-                }
-                if item.status != "filed" {
-                    Button("Sort Again") {
-                        item.status = "pending"
-                        item.sortError = nil
-                    }
-                }
-            }
-            Section {
-                LabeledContent("Shared", value: item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                if RelayClient.isConfigured {
-                    LabeledContent("Relay", value: item.syncLabel)
-                }
-            }
-        }
-        .navigationTitle(item.title ?? "Item")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
