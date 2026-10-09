@@ -66,7 +66,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 
 ## Current phase
 
-**Phase 2** — Relay + Mac agent. The relay (`relay/`) is deployed at https://dumpling-relay.fly.dev (SQLite on a Fly volume; one machine only, deploy with `--ha=false`). The share extension uploads on Save and the app retries anything unsynced. The Mac agent (`agent/`) is written and tested offline; first live run pending.
+**Phase 2**: on-device sorting. The iPhone sorts items with Apple's on-device model (FoundationModels `SystemLanguageModel`) and files reminders/events via EventKit. The relay (`relay/`, deployed on Fly) and Mac agent (`agent/`) are parked; see the plan.
 
 See `plans/plan.md` for the full roadmap.
 
@@ -109,5 +109,6 @@ If the extension stops showing in the share sheet, check these first (all in `io
 - Never commit `.env` or secrets
 - `project.yml` is the source of truth — don't commit `.xcodeproj` files (git-ignored)
 - **Never add capabilities in Xcode's Signing & Capabilities UI** — xcodegen regenerates `.entitlements` and `Info.plist` on every run, wiping anything set in Xcode. All entitlements and Info.plist keys must live in `project.yml`.
-- Check iOS API signatures against Apple docs before using; don't guess
+- Check iOS API signatures against Apple docs before using; don't guess. The SDK's `.swiftinterface` files under `xcrun --sdk iphoneos --show-sdk-path` are authoritative.
+- AI runs on-device. Don't add cloud LLM calls (Claude API, Private Cloud Compute) unless the user opts in.
 - Relay tokens are stored hashed; never add a default/dev token

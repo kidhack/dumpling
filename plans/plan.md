@@ -2,7 +2,9 @@
 
 ## What is Dumpling
 
-Personal content routing agent. Share anything from your iPhone (links, events, music, ideas, LinkedIn posts, job listings, GitHub repos) via the native iOS share sheet. A Mac agent powered by Claude classifies the content, enriches it, and routes it to Apple Reminders, Calendar, Notes, Mail, or creates draft files.
+Personal content routing agent. Share anything from your iPhone (links, events, music, ideas, LinkedIn posts, job listings, GitHub repos) via the native iOS share sheet. Apple's **on-device** model sorts it on the iPhone, and Dumpling files dated things into Apple Reminders and Calendar (which sync to the Mac through iCloud). Everything else stays in Dumpling's own list.
+
+**AI runs locally.** Sorting uses the Foundation Models framework's `SystemLanguageModel` on the phone: no API keys, no per-item cost, works offline, shared content never leaves the device. No cloud LLM by default (not Claude, not Apple's `PrivateCloudComputeLanguageModel`).
 
 **Goal:** Make it shareable with friends as a product.
 
@@ -11,22 +13,24 @@ Personal content routing agent. Share anything from your iPhone (links, events, 
 ## Architecture
 
 ```
-iPhone (iOS Share Extension)
-    ↓  HTTPS POST /ingest
-Hosted Relay (Fly.io — FastAPI + SQLite)
-    ↓  polling every 30s
-Mac Agent (Python + Anthropic SDK + osascript)
-    → Apple Reminders, Calendar, Notes, Mail
+iPhone
+  Share Extension ── App Group queue ──► Dumpling app (on open / foreground)
+                                           1. rules (substring / domain)
+                                           2. on-device model (@Generable decision)
+                                           3. EventKit → Reminders / Calendar  ──iCloud──► Mac
+                                           4. everything else → Dumpling list
 ```
 
 ### Components
 
 | Component | Stack | Location |
 |---|---|---|
-| iOS app + Share Extension | Swift / SwiftUI / iOS 27 | `ios/` |
-| Relay server | FastAPI + SQLAlchemy + SQLite (Fly volume) | `relay/` |
-| Mac agent | Python 3.13 + Anthropic SDK + osascript | `agent/` |
-| Web dashboard | Next.js | `dashboard/` (Phase 3) |
+| iOS app + Share Extension | Swift / SwiftUI / SwiftData / FoundationModels / EventKit, iOS 26+ | `ios/` |
+| Relay server *(parked)* | FastAPI + SQLite on a Fly volume | `relay/` |
+| Mac agent *(parked)* | Python 3.13 + Anthropic SDK + osascript | `agent/` |
+| Web dashboard | TBD | Phase 3 |
+
+The relay and Mac agent were built and tested in Phase 2 before the switch to on-device sorting. They're not on the critical path. The relay could come back for a dashboard, multi-device sync, or sharing with friends, and the agent only if a Claude fallback is ever opted into.
 
 ---
 
@@ -93,16 +97,21 @@ Mac Agent (Python + Anthropic SDK + osascript)
 
 ---
 
-### Phase 2 — Relay + Mac Agent
+### Phase 2 — On-device sorting
 
-**Goal:** End-to-end routing from iPhone to Mac productivity tools.
+**Goal:** The iPhone sorts every shared item with Apple's on-device model and files dated things into Reminders/Calendar itself.
 
-- [x] Relay server (FastAPI + SQLite on a Fly volume) deployed at https://dumpling-relay.fly.dev
-- [x] Share extension uploads to relay on Save (`PUT /items/{id}`); app retries unsynced items on foreground
-- [ ] Image sharing: the extension already activates for images but drops the image data, so items save as "(no content)". Write the image to the App Group container, reference it from the pending item, show a thumbnail in the app, and upload it to the relay.
-- [ ] Mac agent polls relay, calls Claude, runs osascript tools
-- [ ] Routing rules engine (substring/domain/regex) with learn-from-unknown
-- [ ] Apple tools: Reminders, Calendar, Notes, Mail
+Verified against the iOS 27 SDK (`FoundationModels.swiftinterface`): `SystemLanguageModel.default.availability` (`deviceNotEligible` / `appleIntelligenceNotEnabled` / `modelNotReady`), `LanguageModelSession(instructions:)`, `respond(to:generating:)` with a `@Generable` type, `response.content`. Nothing is marked unavailable in app extensions. A `rateLimited` error exists, so sort while the app is in the foreground.
+
+- [ ] Sorter: `@Generable` decision (category, title, notes, due/start/end, location) from `SystemLanguageModel`, run in the app when it imports the queue
+- [ ] Item states: `unsorted` → `sorted` → `filed`, or `needsReview`; items stay `unsorted` and retry when the model is unavailable (not eligible, Apple Intelligence off, model downloading)
+- [ ] The user's note and quick tag override the model
+- [ ] EventKit: reminders into a "Dumpling" list, events into the default calendar for new events; store the EventKit identifier on the item
+- [ ] Links, ideas and anything unclear stay in Dumpling's list (iOS apps can't write Apple Notes)
+- [ ] Rules engine (substring / domain) before the model, learned from the user's corrections
+- [ ] Image sharing: the extension activates for images but drops the image data, so items save as "(no content)". Write the image to the App Group container, reference it from the pending item, and show a thumbnail
+- [x] ~~Relay server~~ (parked): deployed at https://dumpling-relay.fly.dev; the share extension still uploads to it if Settings has a URL and token
+- [x] ~~Mac agent~~ (parked): built and tested offline in `agent/`, never run live
 
 ---
 
