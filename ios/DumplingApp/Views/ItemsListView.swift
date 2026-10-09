@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import FoundationModels
 import OSLog
 
 private let logger = Logger(subsystem: "com.kidhack.dumpling", category: "Sync")
@@ -9,6 +10,9 @@ struct ItemsListView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Item.timestamp, order: .reverse) private var items: [Item]
     @State private var isSyncing = false
+    @State private var isSorting = false
+    @State private var modelUnavailable: SystemLanguageModel.Availability.UnavailableReason?
+    @State private var filer = Filer()
 
     var body: some View {
         NavigationStack {
@@ -19,6 +23,11 @@ struct ItemsListView: View {
                     }
                 }
                 .onDelete(perform: delete)
+            }
+            .safeAreaInset(edge: .top) {
+                if let reason = modelUnavailable {
+                    ModelUnavailableBanner(reason: reason)
+                }
             }
             .navigationTitle("Items")
             .navigationDestination(for: Item.self) { ItemDetailView(item: $0) }
@@ -35,7 +44,7 @@ struct ItemsListView: View {
                 if !items.isEmpty { EditButton() }
             }
         }
-        .task { await refresh() }
+        .onAppear { Task { await refresh() } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await refresh() } }
         }
@@ -48,7 +57,16 @@ struct ItemsListView: View {
 
     private func refresh() async {
         importPendingItems()
+        await sortPendingItems()
         await uploadUnsyncedItems()
+    }
+
+    private func sortPendingItems() async {
+        guard !isSorting else { return }
+        isSorting = true
+        defer { isSorting = false }
+        modelUnavailable = await Processor.processPending(items.reversed(), filer: filer)
+        try? modelContext.save()
     }
 
     private func importPendingItems() {
@@ -97,8 +115,15 @@ struct ItemRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(item.preview)
+            Text(item.displayTitle)
                 .lineLimit(2)
+
+            if item.title != nil {
+                Text(item.preview)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
 
             if let note = item.userNote {
                 Text(note)
@@ -108,20 +133,48 @@ struct ItemRowView: View {
             }
 
             HStack(spacing: 6) {
-                if let tag = item.tagLabel {
-                    Text(tag)
-                }
+                Label(item.statusLabel, systemImage: statusIcon)
                 Text(item.timestamp, format: .relative(presentation: .named))
-                Spacer()
-                if item.isUploadable {
-                    Image(systemName: item.syncedAt == nil ? "icloud.slash" : "checkmark.icloud")
-                        .accessibilityLabel(item.syncedAt == nil ? "Not synced" : "Synced")
-                }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
+    }
+
+    private var statusIcon: String {
+        switch item.status {
+        case "filed": return item.category == "event" ? "calendar" : "checklist"
+        case "kept": return "tray"
+        case "failed": return "exclamationmark.triangle"
+        default: return "hourglass"
+        }
+    }
+}
+
+struct ModelUnavailableBanner: View {
+    let reason: SystemLanguageModel.Availability.UnavailableReason
+
+    var body: some View {
+        Label(message, systemImage: "sparkles")
+            .font(.footnote)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.yellow.opacity(0.2), in: .rect(cornerRadius: 10))
+            .padding(.horizontal)
+    }
+
+    private var message: String {
+        switch reason {
+        case .appleIntelligenceNotEnabled:
+            return "Turn on Apple Intelligence in Settings to sort items. They'll be sorted next time you open Dumpling."
+        case .modelNotReady:
+            return "Apple Intelligence is still downloading. Items will be sorted once it's ready."
+        case .deviceNotEligible:
+            return "This device can't run Apple Intelligence, so items won't be sorted."
+        @unknown default:
+            return "On-device sorting isn't available right now."
+        }
     }
 }
 
@@ -151,14 +204,33 @@ struct ItemDetailView: View {
                     Text(note).textSelection(.enabled)
                 }
             }
-            Section {
+            Section("Sorting") {
+                LabeledContent("Status", value: item.statusLabel)
+                if let category = item.categoryLabel {
+                    LabeledContent("Category", value: category)
+                }
+                if let date = item.relevantDate {
+                    LabeledContent("Date", value: date.formatted(date: .abbreviated, time: .shortened))
+                }
                 LabeledContent("Tag", value: item.tagLabel ?? "None")
-                LabeledContent("Status", value: item.status.capitalized)
-                LabeledContent("Relay", value: item.syncLabel)
+                if let error = item.sortError {
+                    Text(error).foregroundStyle(.secondary)
+                }
+                if item.status != "filed" {
+                    Button("Sort Again") {
+                        item.status = "pending"
+                        item.sortError = nil
+                    }
+                }
+            }
+            Section {
                 LabeledContent("Shared", value: item.timestamp.formatted(date: .abbreviated, time: .shortened))
+                if RelayClient.isConfigured {
+                    LabeledContent("Relay", value: item.syncLabel)
+                }
             }
         }
-        .navigationTitle("Item")
+        .navigationTitle(item.title ?? "Item")
         .navigationBarTitleDisplayMode(.inline)
     }
 }

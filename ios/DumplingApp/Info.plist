@@ -20,6 +20,10 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>3</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Dumpling adds the events you share to your calendar.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Dumpling adds the tasks you share to a "Dumpling" list in Reminders.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

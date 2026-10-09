@@ -103,11 +103,11 @@ The relay and Mac agent were built and tested in Phase 2 before the switch to on
 
 Verified against the iOS 27 SDK (`FoundationModels.swiftinterface`): `SystemLanguageModel.default.availability` (`deviceNotEligible` / `appleIntelligenceNotEnabled` / `modelNotReady`), `LanguageModelSession(instructions:)`, `respond(to:generating:)` with a `@Generable` type, `response.content`. Nothing is marked unavailable in app extensions. A `rateLimited` error exists, so sort while the app is in the foreground.
 
-- [ ] Sorter: `@Generable` decision (category, title, notes, due/start/end, location) from `SystemLanguageModel`, run in the app when it imports the queue
-- [ ] Item states: `unsorted` → `sorted` → `filed`, or `needsReview`; items stay `unsorted` and retry when the model is unavailable (not eligible, Apple Intelligence off, model downloading)
-- [ ] The user's note and quick tag override the model
-- [ ] EventKit: reminders into a "Dumpling" list, events into the default calendar for new events; store the EventKit identifier on the item
-- [ ] Links, ideas and anything unclear stay in Dumpling's list (iOS apps can't write Apple Notes)
+- [x] Sorter: `@Generable` decision (category, title, date phrase, location) from `SystemLanguageModel`, run in the app when it imports the queue. The model only copies date words; `NSDataDetector` turns them into dates (the small model gets date arithmetic wrong), and phrases not found in the shared text are dropped. Tune with `ios/Tools/SortCheck/run.sh` on the Mac.
+- [x] Item states: `unsorted` → `sorted` → `filed`, or `needsReview`; items stay `unsorted` and retry when the model is unavailable (not eligible, Apple Intelligence off, model downloading)
+- [x] The user's note and quick tag override the model
+- [x] EventKit: reminders into a "Dumpling" list, events into the default calendar for new events; store the EventKit identifier on the item
+- [x] Links, ideas and anything unclear stay in Dumpling's list (iOS apps can't write Apple Notes)
 - [ ] Rules engine (substring / domain) before the model, learned from the user's corrections
 - [ ] Image sharing: the extension activates for images but drops the image data, so items save as "(no content)". Write the image to the App Group container, reference it from the pending item, and show a thumbnail
 - [x] ~~Relay server~~ (parked): deployed at https://dumpling-relay.fly.dev; the share extension still uploads to it if Settings has a URL and token

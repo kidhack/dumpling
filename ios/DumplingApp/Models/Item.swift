@@ -10,8 +10,17 @@ final class Item {
     var sourceApp: String?
     var userNote: String?
     var quickTag: String?
-    var status: String  // "pending" | "routed" | "failed"
+    /// "pending" (not sorted yet) | "filed" (in Reminders/Calendar) | "kept" (stays in Dumpling) | "failed"
+    var status: String
     var syncedAt: Date?
+
+    // Set by on-device sorting
+    var category: String?
+    var title: String?
+    var relevantDate: Date?
+    var filedTo: String?
+    var eventKitID: String?
+    var sortError: String?
 
     init(
         id: UUID = UUID(),
@@ -46,6 +55,20 @@ final class Item {
         .init(contentURL: contentURL, contentText: contentText, sourceApp: sourceApp,
               userNote: userNote, quickTag: quickTag, sharedAt: timestamp)
     }
+
+    var displayTitle: String { title ?? preview }
+
+    var statusLabel: String {
+        switch status {
+        case "pending": return "Not sorted yet"
+        case "filed":   return filedTo ?? "Filed"
+        case "kept":    return "Kept in Dumpling"
+        case "failed":  return "Couldn't file"
+        default:        return status.capitalized
+        }
+    }
+
+    var categoryLabel: String? { category?.capitalized }
 
     var preview: String {
         if let url = contentURL { return url }
