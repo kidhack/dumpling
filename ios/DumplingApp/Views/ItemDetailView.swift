@@ -85,6 +85,8 @@ struct ItemDetailView: View {
             .contentShape(.rect)
         }
         .accessibilityLabel("Category: \(category.label)")
+        // Otherwise the divider starts at the text, leaving a gap under the icon.
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
         if category == .event || category == .task {
             Toggle(category == .event ? "Date" : "Due Date", isOn: hasDate)
             if item.relevantDate != nil {
