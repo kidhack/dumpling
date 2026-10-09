@@ -139,40 +139,31 @@ struct ItemRowView: View {
     let section: ItemsSection
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(spacing: 12) {
             CategoryIcon(item: item)
-                .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.displayTitle)
                     .lineLimit(2)
 
-                if item.title != nil {
-                    Text(item.preview)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                if let note = item.userNote {
+                if let note = item.userNote,
+                   note.caseInsensitiveCompare(item.displayTitle) != .orderedSame {
                     Text(note)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
 
-                HStack(spacing: 6) {
-                    // "Kept" is the normal state for unfiled items, so only show where filed items went and problems.
-                    if item.status == "failed" {
-                        Label(item.statusLabel, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
-                    } else if item.status != "kept" {
-                        Text(item.statusLabel)
-                    }
-                    Text(item.timestamp, format: .relative(presentation: .named))
+                // "Kept" is the normal state for unfiled items, so only show where filed items went and problems.
+                if item.status == "failed" {
+                    Label(item.statusLabel, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                } else if item.status != "kept" {
+                    Text(item.statusLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 2)
