@@ -26,7 +26,8 @@ struct ItemDetailView: View {
                 } else {
                     detailRows
                 }
-                LabeledContent("Shared", value: item.timestamp.formatted(date: .abbreviated, time: .shortened))
+                Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
+                    .foregroundStyle(.secondary)
             } footer: {
                 if let error = item.sortError, !item.isFiled {
                     Text(error)
@@ -67,6 +68,7 @@ struct ItemDetailView: View {
                 Label($0.label, systemImage: $0.systemImage).tag($0)
             }
         }
+        .labelsHidden()
         if category == .event || category == .task {
             Toggle(category == .event ? "Date" : "Due Date", isOn: hasDate)
             if item.relevantDate != nil {
