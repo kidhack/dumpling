@@ -1,21 +1,27 @@
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
-    @State private var selectedTab = 0
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var pipeline = ItemPipeline()
+    @State private var selection: ItemsSection? = .inbox
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            ItemsListView()
-                .tabItem {
-                    Label("Items", systemImage: "tray.and.arrow.down")
+        TabView(selection: $selection) {
+            ForEach(ItemsSection.allCases) { section in
+                Tab(section.rawValue, systemImage: section.systemImage, value: Optional(section)) {
+                    ItemsListView(section: section)
                 }
-                .tag(0)
-
-            SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .tag(1)
+            }
+            Tab("Settings", systemImage: "gearshape", value: ItemsSection?.none) {
+                SettingsView()
+            }
+        }
+        .environment(pipeline)
+        .task { await pipeline.refresh(modelContext) }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await pipeline.refresh(modelContext) } }
         }
     }
 }

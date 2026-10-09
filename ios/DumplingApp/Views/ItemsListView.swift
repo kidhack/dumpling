@@ -1,13 +1,18 @@
 import SwiftUI
 import SwiftData
 import FoundationModels
-import OSLog
-
-private let logger = Logger(subsystem: "com.kidhack.dumpling", category: "Sync")
 
 enum ItemsSection: String, CaseIterable, Identifiable {
     case inbox = "Inbox", filed = "Filed", archived = "Archived"
     var id: Self { self }
+
+    var systemImage: String {
+        switch self {
+        case .inbox: return "tray"
+        case .filed: return "calendar.badge.checkmark"
+        case .archived: return "archivebox"
+        }
+    }
 
     func contains(_ item: Item) -> Bool {
         switch self {
@@ -35,14 +40,11 @@ enum ItemsSection: String, CaseIterable, Identifiable {
 }
 
 struct ItemsListView: View {
+    let section: ItemsSection
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.scenePhase) private var scenePhase
-    @Query(sort: \Item.timestamp, order: .reverse) private var items: [Item]
-    @State private var section: ItemsSection = .inbox
-    @State private var isSyncing = false
-    @State private var isSorting = false
-    @State private var modelUnavailable: SystemLanguageModel.Availability.UnavailableReason?
-    @State private var filer = Filer()
+    @Environment(ItemPipeline.self) private var pipeline
+    /// Oldest first, so the newest item sits at the bottom, near your thumb.
+    @Query(sort: \Item.timestamp) private var items: [Item]
 
     private var visible: [Item] { items.filter(section.contains) }
 
@@ -51,38 +53,28 @@ struct ItemsListView: View {
             List {
                 ForEach(visible) { item in
                     NavigationLink(value: item) {
-                        ItemRowView(item: item)
+                        ItemRowView(item: item, section: section)
                     }
                     .swipeActions(edge: .trailing) { swipeActions(for: item) }
                 }
             }
+            .defaultScrollAnchor(.bottom)
             .safeAreaInset(edge: .top) {
-                VStack(spacing: 8) {
-                    Picker("Section", selection: $section) {
-                        ForEach(ItemsSection.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal)
-                    if let reason = modelUnavailable {
-                        ModelUnavailableBanner(reason: reason)
-                    }
+                if section == .inbox, let reason = pipeline.modelUnavailable {
+                    ModelUnavailableBanner(reason: reason)
+                        .padding(.bottom, 4)
                 }
-                .padding(.bottom, 4)
-                .background(.bar)
             }
-            .navigationTitle("Dumpling")
-            .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: filer) }
+            .navigationTitle(section.rawValue)
+            .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: pipeline.filer) }
             .overlay {
                 if visible.isEmpty {
-                    ContentUnavailableView(section.emptyTitle, systemImage: "tray",
+                    ContentUnavailableView(section.emptyTitle, systemImage: section.systemImage,
                                            description: Text(section.emptyMessage))
                 }
             }
         }
-        .onAppear { Task { await refresh() } }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await refresh() } }
-        }
+        .onAppear { Task { await pipeline.refresh(modelContext) } }
     }
 
     @ViewBuilder
@@ -112,63 +104,13 @@ struct ItemsListView: View {
         }
     }
 
-    private func refresh() async {
-        importPendingItems()
-        await sortPendingItems()
-        await uploadUnsyncedItems()
-    }
-
-    private func sortPendingItems() async {
-        guard !isSorting else { return }
-        isSorting = true
-        defer { isSorting = false }
-        modelUnavailable = await Processor.processPending(items.reversed(), filer: filer)
-        try? modelContext.save()
-    }
-
-    private func importPendingItems() {
-        let pending = AppGroup.dequeueAll()
-        for p in pending {
-            let item = Item(
-                id: p.id,
-                contentURL: p.contentURL,
-                contentText: p.contentText,
-                sourceApp: p.sourceApp,
-                userNote: p.userNote,
-                quickTag: p.quickTag
-            )
-            item.timestamp = p.timestamp
-            item.syncedAt = p.syncedAt
-            modelContext.insert(item)
-        }
-        if !pending.isEmpty {
-            try? modelContext.save()
-        }
-    }
-
-    private func uploadUnsyncedItems() async {
-        guard RelayClient.isConfigured, !isSyncing else { return }
-        isSyncing = true
-        defer { isSyncing = false }
-
-        let unsynced = items.filter { $0.syncedAt == nil && $0.isUploadable }
-        for item in unsynced {
-            do {
-                try await RelayClient.upload(id: item.id, payload: item.relayPayload)
-                item.syncedAt = Date()
-            } catch {
-                logger.error("Upload failed for \(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                break
-            }
-        }
-        try? modelContext.save()
-    }
 }
 
 // MARK: - Row
 
 struct ItemRowView: View {
     let item: Item
+    let section: ItemsSection
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -190,7 +132,10 @@ struct ItemRowView: View {
             }
 
             HStack(spacing: 6) {
-                Label(item.statusLabel, systemImage: statusIcon)
+                // In the inbox, "kept" is the default state, so only flag the exceptions.
+                if !(section == .inbox && item.status == "kept") {
+                    Label(item.statusLabel, systemImage: statusIcon)
+                }
                 Text(item.timestamp, format: .relative(presentation: .named))
             }
             .font(.caption)
