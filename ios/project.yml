@@ -2,13 +2,13 @@ name: Dumpling
 options:
   bundleIdPrefix: com.kidhack
   deploymentTarget:
-    iOS: "18.0"
+    iOS: "26.0"
   createIntermediateGroups: true
 
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
     DEVELOPMENT_TEAM: FVJVPTJ48N
     CODE_SIGN_IDENTITY: "Apple Development"
     CODE_SIGN_STYLE: Automatic
@@ -18,7 +18,10 @@ targets:
   Dumpling:
     type: application
     platform: iOS
-    deploymentTarget: "18.0"
+    deploymentTarget: "26.0"
+    dependencies:
+      - target: DumplingShareExtension
+        embed: true
     sources:
       - path: DumplingApp
         createIntermediateGroups: true
@@ -49,7 +52,7 @@ targets:
   DumplingShareExtension:
     type: app-extension
     platform: iOS
-    deploymentTarget: "18.0"
+    deploymentTarget: "26.0"
     sources:
       - path: DumplingShareExtension
         createIntermediateGroups: true
@@ -62,10 +65,8 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
-          NSExtensionActivationRule:
-            NSExtensionActivationSupportsWebURLWithMaxCount: 1
-            NSExtensionActivationSupportsText: true
-            NSExtensionActivationSupportsImageWithMaxCount: 1
+          # TODO: restore dictionary rule (URL/text/image) before TestFlight
+          NSExtensionActivationRule: TRUEPREDICATE
     entitlements:
       path: DumplingShareExtension/DumplingShareExtension.entitlements
       properties:
@@ -88,6 +89,20 @@ schemes:
       config: Debug
     profile:
       config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+  DumplingShareExtension:
+    build:
+      targets:
+        Dumpling: all
+        DumplingShareExtension: all
+    run:
+      config: Debug
+      askForAppToLaunch: true
+      launchAutomaticallySubstyle: "2"
     analyze:
       config: Debug
     archive:

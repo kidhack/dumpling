@@ -11,32 +11,21 @@ brew install xcodegen
 
 ## Generate the Xcode project
 
-From the repo root:
+From `ios/`:
 
 ```bash
-cd ios
 xcodegen generate
 ```
 
-This creates `Dumpling.xcodeproj` from `project.yml`. Re-run any time you add Swift files.
+This creates `Dumpling.xcodeproj` from `project.yml`. Re-run any time you edit `project.yml` or add Swift files. **Never edit `.xcodeproj` directly** — it is git-ignored and regenerated on every run.
 
-## Signing (one-time setup)
+> **Never add capabilities in Xcode's Signing & Capabilities UI.** XcodeGen regenerates
+> `.entitlements` and `Info.plist` files on every `xcodegen generate`, wiping anything set
+> in Xcode. All entitlements must be in `project.yml`.
 
-Before building to a device you must set your Apple Developer team:
+## Signing
 
-1. Open `Dumpling.xcodeproj` in Xcode.
-2. Select the **Dumpling** target → Signing & Capabilities → set **Team** to your Apple Developer account.
-3. Repeat for the **DumplingShareExtension** target.
-4. Xcode will set a provisioning profile automatically.
-
-## App Group (one-time setup)
-
-The app and extension share a UserDefaults suite named `group.com.dumpling.app`.
-
-1. In Xcode, select the **Dumpling** target → Signing & Capabilities → **+ Capability** → App Groups.
-2. Add `group.com.dumpling.app`.
-3. Repeat for **DumplingShareExtension**.
-4. Register the App Group at [developer.apple.com](https://developer.apple.com) → Identifiers → App Groups if prompted.
+Team ID `FVJVPTJ48N` and automatic signing are set in `project.yml` and apply to both targets. No manual Xcode setup is needed.
 
 ## Build for Simulator
 
@@ -46,18 +35,30 @@ xcodegen generate
 xcodebuild \
   -project Dumpling.xcodeproj \
   -scheme Dumpling \
-  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -destination 'generic/platform=iOS Simulator' \
   -configuration Debug \
   build
 ```
 
 ## Run on device
 
-1. Connect iPhone over USB and trust the Mac.
-2. In Xcode, select your iPhone as the destination.
-3. ⌘R to build and run.
-4. The share sheet extension appears in any app after the first install.
+1. Connect iPhone over USB.
+2. Open `ios/Dumpling.xcodeproj` in Xcode.
+3. Select your iPhone as the destination.
+4. ⌘R — Xcode builds, signs, and installs both targets.
+5. **Open the Dumpling app once** after install; iOS won't register the extension until the host app has launched.
 
-## Phase 0 behaviour
+## Test the share extension
 
-The share extension logs the extracted payload (URL, text, image, source app, note, quick tag) to the Xcode console and dismisses. No network calls are made. This is intentional — relay integration comes in Phase 2.
+1. In Safari, navigate to any page.
+2. Tap the Share button → scroll the app row right → tap **More**.
+3. Find **Dumpling** and enable it if needed, then share.
+4. If it doesn't appear, run the **DumplingShareExtension** scheme (Product → Scheme → DumplingShareExtension), pick Safari as the app to launch, then share again.
+
+## Debug extension loading
+
+Open **Console.app** on the Mac, select your iPhone, and filter by `DumplingShareExtension` or `pkd` to see extension registration and crash messages.
+
+## App Group
+
+Both targets share `group.com.kidhack.dumpling` for queuing items between the extension and the main app. This is configured in `project.yml`; no manual setup is needed.

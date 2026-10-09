@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Personal iOS content routing agent. Share anything from the iOS share sheet; a Mac agent routes it to Apple Reminders, Calendar, Notes, or Mail.
+Personal iOS content routing agent. Share anything from the iOS share sheet (links, events, ideas, job listings, etc.); content is queued locally and will be routed by a Mac agent to Apple Reminders, Calendar, Notes, or Mail.
 
 ## Repository layout
 
@@ -10,7 +10,7 @@ Personal iOS content routing agent. Share anything from the iOS share sheet; a M
 ios/                        iOS app + Share Extension
   project.yml               XcodeGen spec (source of truth — edit this, not .xcodeproj)
   DumplingApp/              Host app (SwiftUI, iOS 27)
-  DumplingShareExtension/   Share extension (SwiftUI over UIKit)
+  DumplingShareExtension/   Share extension (UIKit + SwiftUI)
   README.md                 Build + signing instructions
 
 plans/
@@ -47,14 +47,14 @@ xcodegen generate
 xcodebuild \
   -project Dumpling.xcodeproj \
   -scheme Dumpling \
-  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -destination 'generic/platform=iOS Simulator' \
   -configuration Debug \
   build
 ```
 
 ## Current phase
 
-**Phase 0** — XcodeGen project setup. The share extension logs payload and dismisses; no networking.
+**Phase 1** — SwiftData models, App Group queue, settings screen. Share extension enqueues items; main app imports on launch. Extension loading on device being verified.
 
 See `plans/plan.md` for the full roadmap.
 
@@ -78,11 +78,12 @@ Y2K pastel neo-brutalism pixel aesthetic.
 
 ## App Group
 
-`group.com.dumpling.app` — shared UserDefaults between app and extension.
+`group.com.kidhack.dumpling` — shared UserDefaults between app and extension.
 
 ## Key rules
 
 - Never commit `.env` or secrets
 - `project.yml` is the source of truth — don't commit `.xcodeproj` files (git-ignored)
+- **Never add capabilities in Xcode's Signing & Capabilities UI** — xcodegen regenerates `.entitlements` and `Info.plist` on every run, wiping anything set in Xcode. All entitlements and Info.plist keys must live in `project.yml`.
 - Check iOS API signatures against Apple docs before using; don't guess
-- Phase 0 only logs — no relay/HTTP until Phase 2
+- No relay/HTTP until Phase 2
