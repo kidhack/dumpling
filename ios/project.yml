@@ -32,7 +32,7 @@ targets:
       properties:
         CFBundleDisplayName: Dumpling
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        CFBundleVersion: "2"
         UILaunchStoryboardName: ""
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -61,12 +61,14 @@ targets:
       properties:
         CFBundleDisplayName: Dumpling
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        CFBundleVersion: "2"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
-          # TODO: restore dictionary rule (URL/text/image) before TestFlight
-          NSExtensionActivationRule: TRUEPREDICATE
+          # The activation rule MUST live inside NSExtensionAttributes, or iOS never shows the extension.
+          NSExtensionAttributes:
+            # TODO: restore dictionary rule (URL/text/image) before TestFlight
+            NSExtensionActivationRule: TRUEPREDICATE
     entitlements:
       path: DumplingShareExtension/DumplingShareExtension.entitlements
       properties:
