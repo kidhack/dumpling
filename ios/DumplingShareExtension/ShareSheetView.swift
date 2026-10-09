@@ -5,15 +5,7 @@ struct ShareSheetView: View {
     let extensionContext: NSExtensionContext?
 
     @State private var userNote = ""
-    @State private var selectedTag: String? = nil
-
-    private let tags: [(label: String, value: String)] = [
-        ("Reminder", "reminder"),
-        ("Event", "event"),
-        ("Music", "music"),
-        ("Idea", "software_idea"),
-        ("Save Link", "link_save"),
-    ]
+    @State private var selectedTag: CategoryKind? = nil
 
     var body: some View {
         NavigationStack {
@@ -34,12 +26,15 @@ struct ShareSheetView: View {
                 }
 
                 Section {
-                    Picker("Tag", selection: $selectedTag) {
-                        Text("None").tag(String?.none)
-                        ForEach(tags, id: \.value) { tag in
-                            Text(tag.label).tag(Optional(tag.value))
+                    HStack {
+                        ForEach(CategoryKind.allCases) { kind in
+                            TagButton(kind: kind, isSelected: selectedTag == kind) {
+                                selectedTag = selectedTag == kind ? nil : kind
+                            }
+                            if kind != CategoryKind.allCases.last { Spacer(minLength: 0) }
                         }
                     }
+                    .padding(.vertical, 4)
                 }
 
                 if let message = viewModel.errorMessage {
@@ -70,8 +65,29 @@ struct ShareSheetView: View {
 
     private func save() async {
         let trimmed = userNote.trimmingCharacters(in: .whitespacesAndNewlines)
-        if await viewModel.save(userNote: trimmed.isEmpty ? nil : trimmed, quickTag: selectedTag) {
+        if await viewModel.save(userNote: trimmed.isEmpty ? nil : trimmed, quickTag: selectedTag?.quickTag) {
             extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
         }
+    }
+}
+
+/// A one-tap category choice. Tapping the selected one again clears it so Dumpling decides.
+private struct TagButton: View {
+    let kind: CategoryKind
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: kind.systemImage)
+                .font(.title3)
+                .foregroundStyle(isSelected ? .white : kind.tint)
+                .frame(width: 44, height: 44)
+                .background(isSelected ? kind.tint : kind.tint.opacity(0.15), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(kind.label)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .sensoryFeedback(.selection, trigger: isSelected)
     }
 }

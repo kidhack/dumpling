@@ -85,13 +85,6 @@ final class Item {
     }
 
     var tagLabel: String? {
-        switch quickTag {
-        case "reminder":      return "Reminder"
-        case "event":         return "Event"
-        case "music":         return "Music"
-        case "software_idea": return "Idea"
-        case "link_save":     return "Saved Link"
-        default:              return quickTag
-        }
+        CategoryKind(quickTag: quickTag)?.label ?? quickTag
     }
 }

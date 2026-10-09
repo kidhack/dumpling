@@ -1,38 +1,10 @@
 import SwiftUI
 
 extension ItemCategory {
-    var label: String {
-        switch self {
-        case .event: return "Event"
-        case .task: return "Task"
-        case .link: return "Link"
-        case .idea: return "Idea"
-        case .music: return "Music"
-        case .other: return "Other"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .event: return "calendar"
-        case .task: return "checklist"
-        case .link: return "link"
-        case .idea: return "lightbulb"
-        case .music: return "music.note"
-        case .other: return "square.dashed"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .event: return .red
-        case .task: return .orange
-        case .link: return .blue
-        case .idea: return .yellow
-        case .music: return .pink
-        case .other: return .gray
-        }
-    }
+    var kind: CategoryKind { CategoryKind(rawValue: rawValue) ?? .other }
+    var label: String { kind.label }
+    var systemImage: String { kind.systemImage }
+    var tint: Color { kind.tint }
 }
 
 /// The category icon for an item; an hourglass while it waits to be sorted.

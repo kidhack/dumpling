@@ -53,14 +53,7 @@ enum Sorter {
 
     /// The share sheet's quick tag is an explicit choice, so it wins over the model's category.
     static func category(forTag tag: String?) -> ItemCategory? {
-        switch tag {
-        case "reminder": return .task
-        case "event": return .event
-        case "music": return .music
-        case "software_idea": return .idea
-        case "link_save": return .link
-        default: return nil
-        }
+        CategoryKind(quickTag: tag).flatMap { ItemCategory(rawValue: $0.rawValue) }
     }
 
     static func sort(prompt: String, quickTag: String?) async throws -> SortDecision {
