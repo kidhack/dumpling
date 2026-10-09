@@ -38,6 +38,12 @@ func parserChecks() {
     let dateOnly = #"<script type="application/ld+json">{"@type":"Event","startDate":"2026-11-02"}</script>"#
     check("date-only event is all day", PageReader.parse(html: dateOnly).event?.allDay == true)
     check("no event on plain page", PageReader.parse(html: "<title>Blog post</title>").event == nil)
+
+    let footer = "<html><body><h1>Sirene</h1><p>Dinner nightly</p><footer><p>3308 Grand Ave<br>Oakland, CA 94610</p><p>email info@example.com</p></footer><script>var x = '1 Fake St';</script></body></html>"
+    check("address from visible text", PageReader.parse(html: footer).address?.hasPrefix("3308 Grand Ave") == true)
+    let business = #"<script type="application/ld+json">{"@type":"Restaurant","name":"Sirene","address":{"@type":"PostalAddress","streetAddress":"3308 Grand Ave","addressLocality":"Oakland","addressRegion":"CA"}}</script>"#
+    check("address from schema.org business", PageReader.parse(html: business).address == "3308 Grand Ave, Oakland, CA")
+    check("no address on plain page", PageReader.parse(html: "<p>Just a blog post</p>").address == nil)
 }
 
 func show(_ item: Item, page: PageInfo?) async {
@@ -79,7 +85,9 @@ if urls.isEmpty {
 } else {
     for url in urls {
         let page = await PageReader.fetch(URL(string: url)!)
+        print("   page address:", page?.address ?? "-")
         await show(Item(url: url, tag: nil), page: page)
+        await show(Item(url: url, tag: "location"), page: page)
     }
 }
 exit(failures == 0 ? 0 : 1)

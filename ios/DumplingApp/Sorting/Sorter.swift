@@ -95,17 +95,23 @@ enum Sorter {
             // The model's location guesses from page prose are unreliable; trust only structured venue data here.
             plan.location = event.location
         } else if item.quickTag == nil, plan.start == nil, plan.category != .location {
-            // Undated items with a maps link or a street address are places, whatever the model said.
+            // Undated items with a maps link or an address in what the user shared are places, whatever the
+            // model said. A page's footer address alone isn't enough: plenty of non-place pages print one.
             let address = detectedAddress(in: [item.contentText, item.userNote].compactMap { $0 }.joined(separator: "\n"))
             if isMapsLink(item.contentURL) || address != nil {
                 plan.category = .location
-                plan.location = plan.location ?? address
+                plan.location = address ?? plan.location
                 // The model titled it as a task ("buy morning bun"); the place name reads better.
                 if let place = plan.location?.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespaces),
                    !place.isEmpty, !isMapsLink(item.contentURL) {
                     plan.title = place
                 }
             }
+        }
+        // A real address beats the model's guess, which is often just the place's name.
+        if plan.category == .location {
+            let found = detectedAddress(in: [item.contentText, item.userNote].compactMap { $0 }.joined(separator: "\n")) ?? page?.address
+            plan.location = found ?? plan.location
         }
         return plan
     }

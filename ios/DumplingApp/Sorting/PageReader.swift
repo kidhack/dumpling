@@ -14,6 +14,8 @@ struct PageInfo: Sendable, Equatable {
     var title: String?
     var description: String?
     var event: Event?
+    /// A street address from structured business data or the page's visible text.
+    var address: String?
 }
 
 enum PageReader {
@@ -33,7 +35,8 @@ enum PageReader {
         PageInfo(
             title: meta("og:title", in: html) ?? meta("twitter:title", in: html) ?? titleTag(in: html),
             description: meta("og:description", in: html) ?? meta("description", in: html),
-            event: jsonLDEvent(in: html) ?? embeddedEvent(in: html)
+            event: jsonLDEvent(in: html) ?? embeddedEvent(in: html),
+            address: jsonLDAddress(in: html) ?? textAddress(in: html)
         )
     }
 
@@ -75,6 +78,43 @@ enum PageReader {
             }
         }
         return nil
+    }
+
+    // MARK: - Addresses
+
+    /// The first schema.org node with an address (Restaurant, LocalBusiness, Place, Organization...).
+    private static func jsonLDAddress(in html: String) -> String? {
+        for block in allCaptures(#"<script[^>]*type=["']application/ld\+json["'][^>]*>(.*?)</script>"#, in: html) {
+            guard let data = block.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) else { continue }
+            for node in flatten(json) {
+                if let address = postalAddress(node["address"]) { return address }
+            }
+        }
+        return nil
+    }
+
+    private static func postalAddress(_ value: Any?) -> String? {
+        if let s = value as? String { return cleaned(s) }
+        if let array = value as? [Any] { return array.lazy.compactMap(postalAddress).first }
+        guard let a = value as? [String: Any] else { return nil }
+        let parts = ["streetAddress", "addressLocality", "addressRegion", "postalCode"].compactMap { (a[$0] as? String).flatMap(cleaned) }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+
+    /// Small business sites often only print their address in the footer.
+    private static func textAddress(in html: String) -> String? {
+        let withoutCode = html.replacingOccurrences(of: #"<(script|style|noscript)[^>]*>.*?</\1>"#, with: " ",
+                                                    options: [.regularExpression, .caseInsensitive])
+        let text = decodeEntities(withoutCode.replacingOccurrences(of: #"<[^>]+>"#, with: "\n", options: .regularExpression))
+            .replacingOccurrences(of: #"[ \t]+"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s*\n\s*"#, with: "\n", options: .regularExpression)
+        let sample = String(text.prefix(40_000))
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.address.rawValue),
+              let match = detector.firstMatch(in: sample, range: NSRange(sample.startIndex..., in: sample)),
+              let range = Range(match.range, in: sample)
+        else { return nil }
+        return cleaned(sample[range].replacingOccurrences(of: "\n", with: ", "))
     }
 
     private static func flatten(_ json: Any) -> [[String: Any]] {
