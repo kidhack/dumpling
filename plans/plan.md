@@ -59,7 +59,7 @@ Mac Agent (Python + Anthropic SDK + osascript)
 
 ## App Group
 
-`group.com.dumpling.app` — shared UserDefaults between Dumpling.app and DumplingShareExtension for relay URL + auth token.
+`group.com.kidhack.dumpling` — shared UserDefaults between Dumpling.app and DumplingShareExtension: relay URL, auth token, and the pending-items queue.
 
 ---
 
@@ -82,7 +82,7 @@ Mac Agent (Python + Anthropic SDK + osascript)
 
 ---
 
-### Phase 1 — SwiftData + App Settings UI
+### Phase 1 — SwiftData + App Settings UI ✅
 
 **Goal:** Persistent local storage, settings screen for relay URL + auth token.
 
@@ -98,7 +98,8 @@ Mac Agent (Python + Anthropic SDK + osascript)
 **Goal:** End-to-end routing from iPhone to Mac productivity tools.
 
 - [ ] Relay server (FastAPI + Postgres) deployed on Fly.io
-- [ ] Share extension POSTs to relay on "🥟 DUMPLING IT"
+- [ ] Share extension POSTs to relay on Save
+- [ ] Image sharing: the extension already activates for images but drops the image data, so items save as "(no content)". Write the image to the App Group container, reference it from the pending item, show a thumbnail in the app, and upload it to the relay.
 - [ ] Mac agent polls relay, calls Claude, runs osascript tools
 - [ ] Routing rules engine (substring/domain/regex) with learn-from-unknown
 - [ ] Apple tools: Reminders, Calendar, Notes, Mail
