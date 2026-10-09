@@ -92,7 +92,11 @@ def process(item: dict, relay: RelayClient, client: anthropic.Anthropic, cfg: Co
         log.warning("Transient error on %s, will retry: %s", item_id, e)
         relay.update(item_id, status="pending")
         return
-    except (Refused, apple.AppleScriptError, ValueError, anthropic.APIStatusError) as e:
+    except anthropic.APIStatusError:
+        # Billing, auth, or a malformed request: every item would hit the same error, so stop.
+        relay.update(item_id, status="pending")
+        raise
+    except (Refused, apple.AppleScriptError, ValueError) as e:
         log.error("Failed %s: %s", item_id, e)
         relay.update(item_id, status="failed", error=str(e)[:500])
         return

@@ -2,6 +2,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import anthropic
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -55,6 +56,51 @@ def test_event_without_start_falls_back_to_note(calls):
 def test_email_without_body_falls_back_to_note(calls):
     main.execute(decision(action="draft_email"), CFG)
     assert calls[0][0] == "note"
+
+
+class FakeRelay:
+    def __init__(self):
+        self.updates = []
+
+    def update(self, item_id, **fields):
+        self.updates.append((item_id, fields))
+
+
+def api_error(status, message):
+    import httpx2
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx2.Response(status, request=request)
+    cls = {400: anthropic.BadRequestError, 500: anthropic.InternalServerError}[status]
+    return cls(message, response=response, body=None)
+
+
+def test_account_error_requeues_and_stops(monkeypatch):
+    def boom(*a):
+        raise api_error(400, "Your credit balance is too low")
+    monkeypatch.setattr(main, "decide", boom)
+    relay = FakeRelay()
+    with pytest.raises(anthropic.BadRequestError):
+        main.process({"id": "a1"}, relay, None, CFG)
+    assert relay.updates == [("a1", {"status": "pending"})]
+
+
+def test_server_error_requeues_and_continues(monkeypatch):
+    def boom(*a):
+        raise api_error(500, "overloaded")
+    monkeypatch.setattr(main, "decide", boom)
+    relay = FakeRelay()
+    main.process({"id": "a1"}, relay, None, CFG)
+    assert relay.updates == [("a1", {"status": "pending"})]
+
+
+def test_applescript_error_marks_failed(monkeypatch, calls):
+    monkeypatch.setattr(main, "decide", lambda *a: decision())
+    def fail(*a):
+        raise apple.AppleScriptError("Notes got an error: access not allowed")
+    monkeypatch.setattr(apple, "create_note", fail)
+    relay = FakeRelay()
+    main.process({"id": "a1"}, relay, None, CFG)
+    assert relay.updates == [("a1", {"status": "failed", "error": "Notes got an error: access not allowed"})]
 
 
 def test_describe_item_skips_empty_fields():
