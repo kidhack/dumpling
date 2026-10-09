@@ -13,6 +13,8 @@ ios/                        iOS app + Share Extension
   DumplingShareExtension/   Share extension (UIKit + SwiftUI)
   README.md                 Build + signing instructions
 
+relay/                      FastAPI relay (phone → queue → Mac agent); see relay/README.md
+
 plans/
   plan.md                   v2 architecture, phases, design system
 
@@ -22,11 +24,11 @@ ref/                        Reference screenshots / PDFs
 archive/v1/                 v1 Python relay + agent (git-ignored locally)
 ```
 
-**v1 code** (Python relay, agent, Apple tools) lives on the `v1` git branch. Read it with:
+**v1 code** (Python relay, agent, Apple tools) lives in `archive/v1/` locally (git-ignored) and on the remote `v1` branch:
 
 ```bash
-git show v1:<path>
-# e.g. git show v1:relay/main.py
+git show origin/v1:<path>
+# e.g. git show origin/v1:relay/main.py
 ```
 
 ## Build commands
@@ -52,9 +54,17 @@ xcodebuild \
   build
 ```
 
+### Relay
+
+```bash
+cd relay
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest
+```
+
 ## Current phase
 
-**Phase 1** — SwiftData models, App Group queue, settings screen. Share extension enqueues items (URL/text + note + tag) to the App Group; main app imports on launch and foreground.
+**Phase 2** — Relay + Mac agent. The relay (`relay/`) runs and is tested locally; not yet deployed to Fly.io. Next: share extension POSTs to the relay, then the Mac agent.
 
 See `plans/plan.md` for the full roadmap.
 
@@ -98,4 +108,4 @@ If the extension stops showing in the share sheet, check these first (all in `io
 - `project.yml` is the source of truth — don't commit `.xcodeproj` files (git-ignored)
 - **Never add capabilities in Xcode's Signing & Capabilities UI** — xcodegen regenerates `.entitlements` and `Info.plist` on every run, wiping anything set in Xcode. All entitlements and Info.plist keys must live in `project.yml`.
 - Check iOS API signatures against Apple docs before using; don't guess
-- No relay/HTTP until Phase 2
+- Relay tokens are stored hashed; never add a default/dev token
