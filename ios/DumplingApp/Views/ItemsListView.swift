@@ -3,6 +3,7 @@ import SwiftData
 
 struct ItemsListView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Item.timestamp, order: .reverse) private var items: [Item]
 
     var body: some View {
@@ -27,6 +28,9 @@ struct ItemsListView: View {
             }
         }
         .onAppear(perform: importPendingItems)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { importPendingItems() }
+        }
     }
 
     // MARK: - Sub-views
@@ -104,6 +108,13 @@ struct ItemRowView: View {
                     .font(.custom("Courier New", size: 11))
                     .foregroundColor(.dBlack)
                     .lineLimit(2)
+
+                if let note = item.userNote {
+                    Text("✎ \(note)")
+                        .font(.custom("Courier New", size: 10).italic())
+                        .foregroundColor(.dBlack.opacity(0.7))
+                        .lineLimit(3)
+                }
 
                 HStack(spacing: 6) {
                     if let tag = item.quickTag {

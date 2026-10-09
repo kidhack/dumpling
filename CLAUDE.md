@@ -54,7 +54,7 @@ xcodebuild \
 
 ## Current phase
 
-**Phase 1** — SwiftData models, App Group queue, settings screen. Share extension enqueues items; main app imports on launch. Extension loading on device being verified.
+**Phase 1** — SwiftData models, App Group queue, settings screen. Share extension enqueues items (URL/text + note + tag) to the App Group; main app imports on launch and foreground.
 
 See `plans/plan.md` for the full roadmap.
 
@@ -79,6 +79,16 @@ Y2K pastel neo-brutalism pixel aesthetic.
 ## App Group
 
 `group.com.kidhack.dumpling` — shared UserDefaults between app and extension.
+
+## Share extension checklist
+
+If the extension stops showing in the share sheet, check these first (all in `ios/project.yml`):
+
+- [ ] `NSExtensionActivationRule` is nested **inside `NSExtensionAttributes`**, not directly under `NSExtension`. Otherwise iOS silently never shows the extension.
+- [ ] The app's dependency on the extension has `embed: true`. XcodeGen doesn't embed app-extension dependencies by default.
+- [ ] `com.apple.security.application-groups: [group.com.kidhack.dumpling]` is under `entitlements.properties` for **both** targets.
+- [ ] Never add capabilities in Xcode's Signing & Capabilities UI. `xcodegen generate` wipes them.
+- [ ] After building, verify `Dumpling.app/PlugIns/DumplingShareExtension.appex` exists in the build products.
 
 ## Key rules
 
