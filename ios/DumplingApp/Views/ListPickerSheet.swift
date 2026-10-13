@@ -62,10 +62,14 @@ struct ListPickerSheet: View {
     }
 
     private func move(to list: ItemList?) {
-        for item in items { item.list = list }
-        try? modelContext.save()
+        let moving = items
         onDone()
         dismiss()
+        // Shared lists may need items copied into their share zone, so this goes through Sharing.
+        Task {
+            for item in moving { await Sharing.move(item, to: list, in: modelContext) }
+            try? modelContext.save()
+        }
     }
 }
 

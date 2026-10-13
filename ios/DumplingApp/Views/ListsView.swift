@@ -26,7 +26,8 @@ struct ListsView: View {
                         .contextMenu { listActions(for: list) }
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) { delete(list) } label: {
-                                Label("Delete", systemImage: "trash")
+                                Label(Sharing.isOwner(of: list) ? "Delete" : "Leave",
+                                      systemImage: Sharing.isOwner(of: list) ? "trash" : "rectangle.portrait.and.arrow.right")
                             }
                             Button { startRenaming(list) } label: {
                                 Label("Rename", systemImage: "pencil")
@@ -86,8 +87,15 @@ struct ListsView: View {
 
     @ViewBuilder
     private func listActions(for list: ItemList) -> some View {
-        Button("Rename", systemImage: "pencil") { startRenaming(list) }
-        Button("Delete", systemImage: "trash", role: .destructive) { delete(list) }
+        if Sharing.isOwner(of: list) {
+            Button(Sharing.isShared(list) ? "Manage Sharing…" : "Share List…", systemImage: "person.2") {
+                Task { await ShareController.shared.present(list) }
+            }
+            Button("Rename", systemImage: "pencil") { startRenaming(list) }
+            Button("Delete", systemImage: "trash", role: .destructive) { delete(list) }
+        } else {
+            Button("Leave List", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { delete(list) }
+        }
     }
 
     private func startRenaming(_ list: ItemList) {
@@ -96,8 +104,8 @@ struct ListsView: View {
     }
 
     private func delete(_ list: ItemList) {
-        modelContext.delete(list)
-        try? modelContext.save()
+        // Shared lists: the owner's items come back unlisted; someone invited leaves instead.
+        Task { await Sharing.delete(list, in: modelContext) }
     }
 }
 
@@ -112,6 +120,12 @@ private struct ListRow: View {
                 .frame(width: 28, height: 22)
             Text(list.name)
                 .lineLimit(1)
+            if Sharing.isShared(list) {
+                Image(systemName: "person.2.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Shared")
+            }
             Spacer()
             Text("\(list.itemCount)")
                 .foregroundStyle(.secondary)
@@ -139,8 +153,10 @@ struct ListDetailView: View {
                     }
                     .swipeActions(edge: .trailing) {
                         Button {
-                            item.list = nil
-                            try? modelContext.save()
+                            Task {
+                                await Sharing.move(item, to: nil, in: modelContext)
+                                try? modelContext.save()
+                            }
                         } label: {
                             Label("Remove", systemImage: "minus.circle")
                         }
@@ -171,11 +187,24 @@ struct ListDetailView: View {
                 .accessibilityLabel("Back to Lists")
             } trailing: {
                 Menu {
-                    Button("Rename", systemImage: "pencil") { showingRename = true }
-                    Button("Delete List", systemImage: "trash", role: .destructive) {
-                        modelContext.delete(list)
-                        try? modelContext.save()
-                        dismiss()
+                    if Sharing.isOwner(of: list) {
+                        Button(Sharing.isShared(list) ? "Manage Sharing…" : "Share List…",
+                               systemImage: Sharing.isShared(list) ? "person.2" : "person.crop.circle.badge.plus") {
+                            Task { await ShareController.shared.present(list) }
+                        }
+                        Button("Rename", systemImage: "pencil") { showingRename = true }
+                        Button("Delete List", systemImage: "trash", role: .destructive) {
+                            dismiss()
+                            Task { await Sharing.delete(list, in: modelContext) }
+                        }
+                    } else {
+                        if Sharing.canEdit(list) {
+                            Button("Rename", systemImage: "pencil") { showingRename = true }
+                        }
+                        Button("Leave List", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                            dismiss()
+                            Task { await Sharing.leave(list) }
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis")

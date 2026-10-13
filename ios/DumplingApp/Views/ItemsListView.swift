@@ -15,6 +15,8 @@ enum ItemsSection: String, CaseIterable, Identifiable {
     }
 
     func contains(_ item: Item) -> Bool {
+        // Items from lists others shared only appear inside those lists.
+        if item.isFromSharedList { return false }
         switch self {
         case .inbox: return item.isInInbox
         case .filed: return item.isInFiled

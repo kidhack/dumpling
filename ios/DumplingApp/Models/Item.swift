@@ -103,6 +103,9 @@ final class Item: NSManagedObject {
 
     var heartCount: Int { (isHearted ? 1 : 0) + otherHearts }
 
+    /// In a list someone else shared with the user. These only show inside their list.
+    var isFromSharedList: Bool { objectID.persistentStore == Persistence.shared.sharedStore }
+
     var isFiled: Bool { status == "filed" }
     /// Filed by the user to keep, without a Calendar or Reminders entry.
     var isSavedForLater: Bool { isFiled && eventKitID == nil }
