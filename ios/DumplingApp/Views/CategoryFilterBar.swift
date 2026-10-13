@@ -17,7 +17,8 @@ struct CategoryFilterBar: View {
             .scrollBounceBehavior(.basedOnSize)
         }
         .padding(.top, 6)
-        .padding(.bottom, 14)
+        // Room above the tab bar so a reach for a filter doesn't land on a tab.
+        .padding(.bottom, 24)
         // Fade cards out beneath the bar so the chips don't sit on top of them.
         .background {
             LinearGradient(stops: [.init(color: Color(.systemGroupedBackground).opacity(0), location: 0),
