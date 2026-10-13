@@ -3,6 +3,8 @@ import SwiftData
 
 /// The Lists tab: user-made groups of items, like everything for a trip.
 struct ListsView: View {
+    /// Bumped when the user taps the Lists tab while on it; scrolls back to the top.
+    var resetToken = 0
     @Environment(\.modelContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
     @Query(sort: \ItemList.createdAt) private var lists: [ItemList]
@@ -13,12 +15,14 @@ struct ListsView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             List {
                 ForEach(lists) { list in
                     Section {
                         NavigationLink(value: list) {
                             ListRow(list: list)
                         }
+                        .id(list.id)
                         .contextMenu { listActions(for: list) }
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) { delete(list) } label: {
@@ -71,6 +75,11 @@ struct ListsView: View {
             .listNameAlert("Rename List", isPresented: $showingRename, initialName: renaming?.name ?? "") { name in
                 renaming?.name = name
                 try? modelContext.save()
+            }
+            .onChange(of: resetToken) { _, _ in
+                guard let first = lists.first?.id else { return }
+                withAnimation(.snappy) { proxy.scrollTo(first, anchor: .top) }
+            }
             }
         }
     }

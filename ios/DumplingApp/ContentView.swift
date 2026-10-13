@@ -7,14 +7,18 @@ struct ContentView: View {
     @State private var pipeline = ItemPipeline()
     @State private var selection: AppTab = Self.launchTab
     @State private var filterResets: [ItemsSection: Int] = [:]
+    @State private var listsReset = 0
 
-    /// Tapping the tab you're already on resets that tab's filter to All.
+    /// Tapping the tab you're already on resets its filter to All and scrolls it to the top.
     private var tabSelection: Binding<AppTab> {
         Binding {
             selection
         } set: { tapped in
-            if tapped == selection, case .section(let section) = tapped {
-                filterResets[section, default: 0] += 1
+            if tapped == selection {
+                switch tapped {
+                case .section(let section): filterResets[section, default: 0] += 1
+                case .lists: listsReset += 1
+                }
             }
             selection = tapped
         }
@@ -44,7 +48,7 @@ struct ContentView: View {
                 ItemsListView(section: .inbox, filterResetToken: filterResets[.inbox, default: 0])
             }
             Tab("Lists", systemImage: "list.bullet", value: AppTab.lists) {
-                ListsView()
+                ListsView(resetToken: listsReset)
             }
             ForEach([ItemsSection.filed, .archived]) { section in
                 Tab(section.rawValue, systemImage: section.systemImage, value: AppTab.section(section)) {

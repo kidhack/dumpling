@@ -80,6 +80,7 @@ struct ItemsListView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             List(selection: $selection) {
                 // One section per item so each is its own card.
                 ForEach(visible) { item in
@@ -88,6 +89,7 @@ struct ItemsListView: View {
                             ItemRowView(item: item, section: section)
                         }
                         .tag(item.id)
+                        .id(item.id)
                         .swipeActions(edge: .trailing) { trailingActions(for: item) }
                         .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingActions(for: item) }
                     }
@@ -162,9 +164,17 @@ struct ItemsListView: View {
                     CategoryFilterBar(selection: $filter, available: availableFilters)
                 }
             }
+            // Tapping this tab while on it: back to All, back to the top.
+            .onChange(of: filterResetToken) { _, _ in
+                filter = nil
+                DispatchQueue.main.async {
+                    guard let first = inSection.first?.id else { return }
+                    withAnimation(.snappy) { proxy.scrollTo(first, anchor: .top) }
+                }
+            }
+            }
         }
         .onAppear { Task { await pipeline.refresh(modelContext) } }
-        .onChange(of: filterResetToken) { _, _ in filter = nil }
     }
 
     // MARK: - Header
