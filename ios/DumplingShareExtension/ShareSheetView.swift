@@ -5,15 +5,8 @@ struct ShareSheetView: View {
     let extensionContext: NSExtensionContext?
 
     @State private var userNote = ""
-    @State private var selectedTag: String? = nil
-
-    private let tags: [(label: String, value: String)] = [
-        ("Reminder", "reminder"),
-        ("Event", "event"),
-        ("Music", "music"),
-        ("Idea", "software_idea"),
-        ("Save Link", "link_save"),
-    ]
+    @State private var selectedTag: CategoryKind? = nil
+    @FocusState private var noteFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -30,22 +23,28 @@ struct ShareSheetView: View {
 
                 Section("Note") {
                     TextField("Optional", text: $userNote, axis: .vertical)
-                        .lineLimit(3...6)
+                        .lineLimit(2...6)
+                        .focused($noteFocused)
                 }
 
                 Section {
-                    Picker("Tag", selection: $selectedTag) {
-                        Text("None").tag(String?.none)
-                        ForEach(tags, id: \.value) { tag in
-                            Text(tag.label).tag(Optional(tag.value))
-                        }
-                    }
+                    // Picking a category saves right away; Save is for sharing without one.
+                    CategoryButtons(selection: $selectedTag)
+                        .disabled(viewModel.isSaving)
                 }
 
-                if case .failure(let message) = viewModel.result {
+                if let message = viewModel.errorMessage {
                     Section {
                         Text(message).foregroundStyle(.red)
                     }
+                }
+            }
+            .onAppear { noteFocused = true }
+            .onChange(of: selectedTag) { _, tag in
+                guard tag != nil else { return }
+                Task {
+                    while viewModel.isExtracting { try? await Task.sleep(for: .milliseconds(100)) }
+                    await save()
                 }
             }
             .navigationTitle("Dumpling")
@@ -57,17 +56,20 @@ struct ShareSheetView: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
-                        .disabled(viewModel.isExtracting)
+                    if viewModel.isSaving {
+                        ProgressView()
+                    } else {
+                        Button("Save") { Task { await save() } }
+                            .disabled(viewModel.isExtracting)
+                    }
                 }
             }
         }
     }
 
-    private func save() {
+    private func save() async {
         let trimmed = userNote.trimmingCharacters(in: .whitespacesAndNewlines)
-        viewModel.submit(userNote: trimmed.isEmpty ? nil : trimmed, quickTag: selectedTag)
-        if case .success = viewModel.result {
+        if await viewModel.save(userNote: trimmed.isEmpty ? nil : trimmed, quickTag: selectedTag?.quickTag) {
             extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
         }
     }

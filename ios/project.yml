@@ -25,6 +25,7 @@ targets:
     sources:
       - path: DumplingApp
         createIntermediateGroups: true
+      - path: Shared
     resources:
       - path: DumplingApp/Assets.xcassets
     info:
@@ -38,11 +39,22 @@ targets:
           - UIInterfaceOrientationPortrait
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        NSRemindersFullAccessUsageDescription: Dumpling adds the tasks you share to a "Dumpling" list in Reminders.
+        # Lets CloudKit push changes from other devices so iCloud sync happens in the background.
+        UIBackgroundModes:
+          - remote-notification
+        NSCalendarsFullAccessUsageDescription: Dumpling adds the events you share to your calendar, checks for ones you've already added so it doesn't duplicate them, and links to them.
     entitlements:
       path: DumplingApp/Dumpling.entitlements
       properties:
         com.apple.security.application-groups:
           - group.com.kidhack.dumpling
+        # iCloud sync of items and lists (SwiftData private database).
+        com.apple.developer.icloud-services:
+          - CloudKit
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.kidhack.dumpling
+        aps-environment: development
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kidhack.dumpling
@@ -56,6 +68,7 @@ targets:
     sources:
       - path: DumplingShareExtension
         createIntermediateGroups: true
+      - path: Shared
     info:
       path: DumplingShareExtension/Info.plist
       properties:

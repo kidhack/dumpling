@@ -3,41 +3,27 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.kidhack.dumpling.ShareExtension", category: "ShareViewModel")
 
-// Mirrors PendingItem in DumplingApp/Shared/AppGroup.swift — keep the two in sync.
-private struct PendingItem: Codable {
-    var contentURL: String?
-    var contentText: String?
-    var sourceApp: String?
-    var userNote: String?
-    var quickTag: String?
-    var timestamp: Date = Date()
-}
-
 @MainActor
 final class ShareViewModel: ObservableObject {
 
     @Published var isExtracting = true
-    @Published var isLoading = false
-    @Published var result: UploadResult? = nil
+    @Published var isSaving = false
+    @Published var errorMessage: String? = nil
 
     @Published var extractedURL: String? = nil
     @Published var extractedText: String? = nil
     @Published var hasImage = false
 
-    enum UploadResult {
-        case success(String)
-        case failure(String)
-    }
-
     var previewText: String {
         extractedURL ?? extractedText ?? (hasImage ? "(image)" : "(nothing extracted)")
     }
 
-    func submit(userNote: String?, quickTag: String?) {
-        isLoading = true
-        defer { isLoading = false }
+    /// Returns true once the item is safely queued, whether or not the relay upload succeeded.
+    func save(userNote: String?, quickTag: String?) async -> Bool {
+        isSaving = true
+        defer { isSaving = false }
 
-        let item = PendingItem(
+        var item = PendingItem(
             contentURL: extractedURL,
             contentText: extractedText,
             sourceApp: nil,
@@ -45,26 +31,26 @@ final class ShareViewModel: ObservableObject {
             quickTag: quickTag
         )
 
-        guard let defaults = UserDefaults(suiteName: "group.com.kidhack.dumpling") else {
-            logger.error("Enqueue failed: App Group suite unavailable")
-            result = .failure("App Group not configured")
-            return
+        if RelayClient.isConfigured, item.contentURL != nil || item.contentText != nil {
+            do {
+                try await RelayClient.upload(id: item.id, payload: item.relayPayload, timeout: 8)
+                item.syncedAt = Date()
+                logger.info("Relay upload succeeded for \(item.id, privacy: .public)")
+            } catch {
+                logger.error("Relay upload failed, app will retry: \(error.localizedDescription, privacy: .public)")
+            }
+        } else {
+            logger.info("Relay upload skipped (not configured or no URL/text)")
         }
-
-        var queue: [PendingItem] = []
-        if let data = defaults.data(forKey: "pending_items"),
-           let existing = try? JSONDecoder().decode([PendingItem].self, from: data) {
-            queue = existing
-        }
-        queue.append(item)
 
         do {
-            defaults.set(try JSONEncoder().encode(queue), forKey: "pending_items")
-            logger.info("Enqueue succeeded: queue size \(queue.count), url=\(self.extractedURL ?? "nil", privacy: .public), note=\(userNote != nil)")
-            result = .success("Dumpling'd! 🥟")
+            try AppGroup.enqueue(item)
+            logger.info("Enqueue succeeded: url=\(item.contentURL ?? "nil", privacy: .public), note=\(userNote != nil), synced=\(item.syncedAt != nil)")
+            return true
         } catch {
             logger.error("Enqueue failed: \(error.localizedDescription, privacy: .public)")
-            result = .failure("Couldn't save item")
+            errorMessage = "Couldn't save item"
+            return false
         }
     }
 }

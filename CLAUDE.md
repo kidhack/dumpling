@@ -11,7 +11,11 @@ ios/                        iOS app + Share Extension
   project.yml               XcodeGen spec (source of truth — edit this, not .xcodeproj)
   DumplingApp/              Host app (SwiftUI, iOS 27)
   DumplingShareExtension/   Share extension (UIKit + SwiftUI)
+  Shared/                   Compiled into both targets (App Group queue, relay client)
   README.md                 Build + signing instructions
+
+relay/                      FastAPI relay (phone → queue → Mac agent); see relay/README.md
+agent/                      Mac agent: claims items, asks Claude, files into Apple apps; see agent/README.md
 
 plans/
   plan.md                   v2 architecture, phases, design system
@@ -22,11 +26,11 @@ ref/                        Reference screenshots / PDFs
 archive/v1/                 v1 Python relay + agent (git-ignored locally)
 ```
 
-**v1 code** (Python relay, agent, Apple tools) lives on the `v1` git branch. Read it with:
+**v1 code** (Python relay, agent, Apple tools) lives in `archive/v1/` locally (git-ignored) and on the remote `v1` branch:
 
 ```bash
-git show v1:<path>
-# e.g. git show v1:relay/main.py
+git show origin/v1:<path>
+# e.g. git show origin/v1:relay/main.py
 ```
 
 ## Build commands
@@ -52,9 +56,17 @@ xcodebuild \
   build
 ```
 
+### Relay
+
+```bash
+cd relay
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest
+```
+
 ## Current phase
 
-**Phase 1** — SwiftData models, App Group queue, settings screen. Share extension enqueues items (URL/text + note + tag) to the App Group; main app imports on launch and foreground.
+**Phase 2**: on-device sorting. The iPhone sorts items with Apple's on-device model (FoundationModels `SystemLanguageModel`) and files reminders/events via EventKit. The relay (`relay/`, deployed on Fly) and Mac agent (`agent/`) are parked; see the plan.
 
 See `plans/plan.md` for the full roadmap.
 
@@ -97,5 +109,6 @@ If the extension stops showing in the share sheet, check these first (all in `io
 - Never commit `.env` or secrets
 - `project.yml` is the source of truth — don't commit `.xcodeproj` files (git-ignored)
 - **Never add capabilities in Xcode's Signing & Capabilities UI** — xcodegen regenerates `.entitlements` and `Info.plist` on every run, wiping anything set in Xcode. All entitlements and Info.plist keys must live in `project.yml`.
-- Check iOS API signatures against Apple docs before using; don't guess
-- No relay/HTTP until Phase 2
+- Check iOS API signatures against Apple docs before using; don't guess. The SDK's `.swiftinterface` files under `xcrun --sdk iphoneos --show-sdk-path` are authoritative.
+- AI runs on-device. Don't add cloud LLM calls (Claude API, Private Cloud Compute) unless the user opts in.
+- Relay tokens are stored hashed; never add a default/dev token

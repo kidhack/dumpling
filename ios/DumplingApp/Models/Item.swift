@@ -3,23 +3,44 @@ import SwiftData
 
 @Model
 final class Item {
-    var id: UUID
-    var timestamp: Date
+    var id: UUID = UUID()
+    var timestamp: Date = Date()
     var contentURL: String?
     var contentText: String?
     var sourceApp: String?
     var userNote: String?
     var quickTag: String?
-    var status: String  // "pending" | "routed" | "failed"
+    /// "pending" (not sorted yet) | "filed" (in Reminders/Calendar) | "kept" (stays in Dumpling) | "failed"
+    var status: String = "pending"
+    var syncedAt: Date?
+
+    // Set by on-device sorting
+    var category: String?
+    var title: String?
+    var relevantDate: Date?
+    var filedTo: String?
+    var eventKitID: String?
+    var sortError: String?
+    var location: String?
+    var latitude: Double?
+    var longitude: Double?
+    var isAllDay: Bool = false
+    var archivedAt: Date?
+    var list: ItemList?
+    /// The user's own heart.
+    var isHearted: Bool = false
+    /// Hearts from other people on a shared list. Always 0 until lists can be shared.
+    var otherHearts: Int = 0
 
     init(
+        id: UUID = UUID(),
         contentURL: String? = nil,
         contentText: String? = nil,
         sourceApp: String? = nil,
         userNote: String? = nil,
         quickTag: String? = nil
     ) {
-        self.id = UUID()
+        self.id = id
         self.timestamp = Date()
         self.contentURL = contentURL
         self.contentText = contentText
@@ -31,6 +52,53 @@ final class Item {
 
     // MARK: - Display helpers
 
+    /// The relay rejects items with neither a URL nor text (e.g. image-only shares).
+    var isUploadable: Bool { contentURL != nil || contentText != nil }
+
+    var relayPayload: RelayClient.ItemPayload {
+        .init(contentURL: contentURL, contentText: contentText, sourceApp: sourceApp,
+              userNote: userNote, quickTag: quickTag, sharedAt: timestamp)
+    }
+
+    var displayTitle: String { title ?? preview }
+
+    var statusLabel: String {
+        switch status {
+        case "pending": return "Not sorted yet"
+        case "filed":   return filedTo ?? "Filed"
+        case "kept":    return "Kept in Dumpling"
+        case "failed":  return "Couldn't file"
+        default:        return status.capitalized
+        }
+    }
+
+    var categoryLabel: String? { category?.capitalized }
+
+    var heartCount: Int { (isHearted ? 1 : 0) + otherHearts }
+
+    var isFiled: Bool { status == "filed" }
+    /// Filed by the user to keep, without a Calendar or Reminders entry.
+    var isSavedForLater: Bool { isFiled && eventKitID == nil }
+
+    func saveForLater() {
+        status = "filed"
+        filedTo = "Saved for Later"
+        eventKitID = nil
+        archivedAt = nil
+    }
+
+    func moveToInbox() {
+        status = "kept"
+        filedTo = nil
+        eventKitID = nil
+        archivedAt = nil
+    }
+    var isArchived: Bool { archivedAt != nil }
+    /// Open items: not filed, archived, or put in a list (a list is where it was filed to).
+    var isInInbox: Bool { !isFiled && !isArchived && list == nil }
+    /// Filed items that haven't been archived.
+    var isInFiled: Bool { isFiled && !isArchived }
+
     var preview: String {
         if let url = contentURL { return url }
         if let text = contentText { return text }
@@ -38,13 +106,6 @@ final class Item {
     }
 
     var tagLabel: String? {
-        switch quickTag {
-        case "reminder":      return "Reminder"
-        case "event":         return "Event"
-        case "music":         return "Music"
-        case "software_idea": return "Idea"
-        case "link_save":     return "Saved Link"
-        default:              return quickTag
-        }
+        CategoryKind(quickTag: quickTag)?.label ?? quickTag
     }
 }
