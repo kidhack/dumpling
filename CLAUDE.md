@@ -104,6 +104,13 @@ If the extension stops showing in the share sheet, check these first (all in `io
 - [ ] Never add capabilities in Xcode's Signing & Capabilities UI. `xcodegen generate` wipes them.
 - [ ] After building, verify `Dumpling.app/PlugIns/DumplingShareExtension.appex` exists in the build products.
 
+## Data (Core Data + CloudKit)
+
+- Storage is Core Data with `NSPersistentCloudKitContainer` (`ios/DumplingApp/Data/`): a private store (`default.store`, the file SwiftData originally created) and a shared store (`shared.store`) for lists others share. Both live in the App Group container and sync to `iCloud.com.kidhack.dumpling`.
+- The model is defined in code (`DumplingModel.swift`) and must keep matching the store's entity version hashes. CloudKit requires every attribute to be optional or have a default.
+- **Changing the model:** a code-defined model has no saved previous version, so Core Data can't infer a migration on its own. Keep the old model alongside the new one (or move to an `.xcdatamodeld` with versions) and test the upgrade on a copy of a device backup (`~/Dev/dumpling-backups/`) before installing.
+- Before installing a build that changes the model, copy the device store to `~/Dev/dumpling-backups/<date>-<reason>/` with `devicectl device copy from --domain-type appGroupDataContainer --domain-identifier group.com.kidhack.dumpling`.
+
 ## Key rules
 
 - Never commit `.env` or secrets

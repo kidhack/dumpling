@@ -2,12 +2,12 @@ import EventKit
 import EventKitUI
 import MapKit
 import SwiftUI
-import SwiftData
+import CoreData
 
 struct ItemDetailView: View {
-    @Bindable var item: Item
+    @ObservedObject var item: Item
     let filer: Filer
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var modelContext
     @State private var isFiling = false
     @State private var accessRefresh = 0
     @State private var showingListPicker = false
@@ -135,7 +135,7 @@ struct ItemDetailView: View {
         item.latitude = nil
         item.longitude = nil
         item.sortError = nil
-        let all = (try? modelContext.fetch(FetchDescriptor<Item>())) ?? [item]
+        let all = Item.all(in: modelContext)
         _ = await Processor.processPending([item] + all.filter { $0.id != item.id && $0.status != "pending" },
                                            filer: filer)
         try? modelContext.save()

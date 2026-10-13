@@ -1,5 +1,5 @@
 import SwiftUI
-import SwiftData
+import CoreData
 import FoundationModels
 
 enum ItemsSection: String, CaseIterable, Identifiable {
@@ -43,10 +43,10 @@ struct ItemsListView: View {
     let section: ItemsSection
     /// Bumped when the user taps this tab while already on it; resets the filter to All.
     var filterResetToken = 0
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
     /// Newest first.
-    @Query(sort: \Item.timestamp, order: .reverse) private var items: [Item]
+    @FetchRequest(sortDescriptors: [SortDescriptor(\Item.timestamp, order: .reverse)]) private var items: FetchedResults<Item>
 
     @State private var pull: CGFloat = 0
     @State private var isDragging = false

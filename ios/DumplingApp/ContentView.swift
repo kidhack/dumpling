@@ -1,8 +1,8 @@
 import SwiftUI
-import SwiftData
+import CoreData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var pipeline = ItemPipeline()
     @State private var selection: AppTab = Self.launchTab
@@ -62,9 +62,4 @@ struct ContentView: View {
             if phase == .active { Task { await pipeline.refresh(modelContext) } }
         }
     }
-}
-
-#Preview {
-    ContentView()
-        .modelContainer(for: [Item.self, ItemList.self, RoutingRule.self], inMemory: true)
 }

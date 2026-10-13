@@ -1,13 +1,13 @@
 import SwiftUI
-import SwiftData
+import CoreData
 
 /// The Lists tab: user-made groups of items, like everything for a trip.
 struct ListsView: View {
     /// Bumped when the user taps the Lists tab while on it; scrolls back to the top.
     var resetToken = 0
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
-    @Query(sort: \ItemList.createdAt) private var lists: [ItemList]
+    @FetchRequest(sortDescriptors: [SortDescriptor(\ItemList.createdAt)]) private var lists: FetchedResults<ItemList>
 
     @State private var showingNewList = false
     @State private var renaming: ItemList?
@@ -69,7 +69,7 @@ struct ListsView: View {
             .navigationDestination(for: ItemList.self) { ListDetailView(list: $0) }
             .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: pipeline.filer) }
             .listNameAlert("New List", isPresented: $showingNewList) { name in
-                modelContext.insert(ItemList(name: name))
+                Persistence.shared.assignToPrivateStore(ItemList(context: modelContext, name: name))
                 try? modelContext.save()
             }
             .listNameAlert("Rename List", isPresented: $showingRename, initialName: renaming?.name ?? "") { name in
@@ -113,7 +113,7 @@ private struct ListRow: View {
             Text(list.name)
                 .lineLimit(1)
             Spacer()
-            Text("\(list.items?.count ?? 0)")
+            Text("\(list.itemCount)")
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         }
@@ -123,12 +123,12 @@ private struct ListRow: View {
 
 /// One list's items, newest first like the other tabs.
 struct ListDetailView: View {
-    @Bindable var list: ItemList
-    @Environment(\.modelContext) private var modelContext
+    @ObservedObject var list: ItemList
+    @Environment(\.managedObjectContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var showingRename = false
 
-    private var items: [Item] { (list.items ?? []).sorted { $0.timestamp > $1.timestamp } }
+    private var items: [Item] { list.itemsArray.sorted { $0.timestamp > $1.timestamp } }
 
     var body: some View {
         List {

@@ -3,7 +3,13 @@ import CoreData
 /// The Core Data model, defined in code. It mirrors the schema SwiftData created, so the existing
 /// store (and its iCloud records) open without migration.
 enum DumplingModel {
-    static let shared: NSManagedObjectModel = make()
+    // Built once and never mutated, so sharing it across threads is safe.
+    nonisolated(unsafe) static let shared: NSManagedObjectModel = make()
+
+    // CloudKit requires a default on every non-optional attribute. Real values are always set in the
+    // initializers; these only satisfy the requirement. Defaults don't affect the entity version hashes.
+    private static let placeholderID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+    private static let placeholderDate = Date(timeIntervalSinceReferenceDate: 0)
 
     private static func attribute(_ name: String, _ type: NSAttributeType, optional: Bool = true,
                                   default value: Any? = nil) -> NSAttributeDescription {
@@ -47,8 +53,8 @@ enum DumplingModel {
         listItems.inverseRelationship = itemList
 
         item.properties = [
-            attribute("id", .UUIDAttributeType, optional: false),
-            attribute("timestamp", .dateAttributeType, optional: false),
+            attribute("id", .UUIDAttributeType, optional: false, default: placeholderID),
+            attribute("timestamp", .dateAttributeType, optional: false, default: placeholderDate),
             attribute("contentURL", .stringAttributeType),
             attribute("contentText", .stringAttributeType),
             attribute("sourceApp", .stringAttributeType),
@@ -73,14 +79,14 @@ enum DumplingModel {
         ]
 
         list.properties = [
-            attribute("id", .UUIDAttributeType, optional: false),
+            attribute("id", .UUIDAttributeType, optional: false, default: placeholderID),
             attribute("name", .stringAttributeType, optional: false, default: ""),
-            attribute("createdAt", .dateAttributeType, optional: false),
+            attribute("createdAt", .dateAttributeType, optional: false, default: placeholderDate),
             listItems,
         ]
 
         rule.properties = [
-            attribute("id", .UUIDAttributeType, optional: false),
+            attribute("id", .UUIDAttributeType, optional: false, default: placeholderID),
             attribute("pattern", .stringAttributeType, optional: false, default: ""),
             attribute("patternType", .stringAttributeType, optional: false, default: "substring"),
             attribute("contentType", .stringAttributeType, optional: false, default: ""),
@@ -88,7 +94,7 @@ enum DumplingModel {
             attribute("target", .stringAttributeType, optional: false, default: ""),
             attribute("isEnabled", .booleanAttributeType, optional: false, default: true),
             attribute("matchCount", .integer64AttributeType, optional: false, default: 0),
-            attribute("createdAt", .dateAttributeType, optional: false),
+            attribute("createdAt", .dateAttributeType, optional: false, default: placeholderDate),
         ]
 
         let model = NSManagedObjectModel()

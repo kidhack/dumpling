@@ -1,18 +1,28 @@
+import CoreData
 import Foundation
-import SwiftData
 
-/// A user-made group of items, like a trip. Items stay in their Inbox/Filed/Archived tab too.
-@Model
-final class ItemList {
-    var id: UUID = UUID()
-    var name: String = ""
-    var createdAt: Date = Date()
+/// A user-made group of items, like a trip. Deleting a list keeps its items; they just leave the list.
+/// Backed by Core Data (entity "ItemList" in DumplingModel) so it can be shared through iCloud.
+@objc(DumplingList)
+final class ItemList: NSManagedObject {
+    @NSManaged var id: UUID
+    @NSManaged var name: String
+    @NSManaged var createdAt: Date
+    @NSManaged private var items: NSSet?
 
-    /// Deleting a list keeps its items; they just leave the list. Optional because CloudKit requires it.
-    @Relationship(deleteRule: .nullify, inverse: \Item.list)
-    var items: [Item]? = []
+    @nonobjc static func fetchRequest() -> NSFetchRequest<ItemList> {
+        NSFetchRequest<ItemList>(entityName: "ItemList")
+    }
 
-    init(name: String) {
+    var itemsArray: [Item] { (items?.allObjects as? [Item]) ?? [] }
+    var itemCount: Int { items?.count ?? 0 }
+
+    convenience init(context: NSManagedObjectContext, name: String) {
+        self.init(context: context)
+        self.id = UUID()
         self.name = name
+        self.createdAt = Date()
     }
 }
+
+extension ItemList: Identifiable {}
