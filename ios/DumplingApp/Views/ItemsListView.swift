@@ -43,17 +43,15 @@ struct ItemsListView: View {
     let section: ItemsSection
     @Environment(\.modelContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
-    /// Oldest first, so the newest item sits at the bottom, near your thumb.
-    @Query(sort: \Item.timestamp) private var items: [Item]
+    /// Newest first.
+    @Query(sort: \Item.timestamp, order: .reverse) private var items: [Item]
 
-    @State private var bottomPadding: CGFloat = 0
     @State private var pull: CGFloat = 0
     @State private var isDragging = false
     @State private var addArmed = false
     @State private var showingNewItem = false
     @State private var showingAbout = false
     @State private var showingSettings = false
-    @State private var didInitialScroll = false
     private let addThreshold: CGFloat = 100
 
     @State private var filter: CategoryKind?
@@ -80,19 +78,7 @@ struct ItemsListView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
             List(selection: $selection) {
-                // List ignores bottom alignment, so a clear spacer pushes short lists down onto the tab bar.
-                // It gets its own section so it never touches the first card's corners.
-                if !visible.isEmpty && bottomPadding > 0 {
-                    Section {
-                        Color.clear
-                            .frame(height: bottomPadding)
-                            .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets())
-                            .selectionDisabled()
-                    }
-                }
                 // One section per item so each is its own card.
                 ForEach(visible) { item in
                     Section {
@@ -100,7 +86,6 @@ struct ItemsListView: View {
                             ItemRowView(item: item, section: section)
                         }
                         .tag(item.id)
-                        .id(item.id)
                         .swipeActions(edge: .trailing) { trailingActions(for: item) }
                         .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingActions(for: item) }
                     }
@@ -108,17 +93,10 @@ struct ItemsListView: View {
             }
             .environment(\.editMode, $editMode)
             .listSectionSpacing(10)
+            // Pull down past the newest item to add one (Inbox only). Only real drags count: layout changes
+            // (launch, a sheet closing) can briefly read as overscroll.
             .onScrollGeometryChange(for: CGFloat.self) { geo in
-                geo.containerSize.height - geo.contentInsets.top - geo.contentInsets.bottom - geo.contentSize.height
-            } action: { _, free in
-                // `free` is measured with the current spacer included; solve for the spacer that fills it.
-                let target = max(0, bottomPadding + free)
-                if abs(target - bottomPadding) > 0.5 { bottomPadding = target }
-            }
-            // Pull up past the newest item to add one (Inbox only). Only real drags count: layout changes
-            // (launch, the bottom spacer settling, a sheet closing) also briefly read as overscroll.
-            .onScrollGeometryChange(for: CGFloat.self) { geo in
-                geo.contentOffset.y + geo.containerSize.height - geo.contentInsets.bottom - geo.contentSize.height
+                -(geo.contentOffset.y + geo.contentInsets.top)
             } action: { _, overscroll in
                 guard section == .inbox, !isSelecting else { return }
                 pull = max(0, overscroll)
@@ -136,11 +114,11 @@ struct ItemsListView: View {
                 }
             }
             .sensoryFeedback(.impact(weight: .medium), trigger: addArmed) { _, armed in armed }
-            .overlay(alignment: .bottom) {
+            .overlay(alignment: .top) {
                 if section == .inbox && isDragging && pull > 4 && !isSelecting {
                     NewCardHint(progress: min(pull / addThreshold, 1), armed: addArmed,
                                 reveal: max(0, min(pull - 16, 80)))
-                        .padding(.bottom, 12)
+                        .padding(.top, 8)
                 }
             }
             .accessibilityActions {
@@ -191,36 +169,8 @@ struct ItemsListView: View {
                     CategoryFilterBar(selection: $filter, available: availableFilters)
                 }
             }
-            // List ignores defaultScrollAnchor for long lists, so jump to the newest card explicitly —
-            // but only on first open, so returning from an item keeps your place.
-            .task {
-                guard !didInitialScroll else { return }
-                // The rows aren't laid out on the first pass, so scroll once they are.
-                for delay in [50, 300] {
-                    try? await Task.sleep(for: .milliseconds(delay))
-                    scrollToNewest(proxy, animated: false)
-                }
-                didInitialScroll = true
-            }
-            .onChange(of: inSection.count) { old, new in
-                if new > old && !isSelecting { scrollToNewest(proxy, animated: true) }
-            }
-            .onChange(of: filter) { _, _ in scrollToNewest(proxy, animated: false) }
-            }
         }
         .onAppear { Task { await pipeline.refresh(modelContext) } }
-    }
-
-    private func scrollToNewest(_ proxy: ScrollViewProxy, animated: Bool) {
-        guard let last = visible.last?.id else { return }
-        // Let the list lay out the new rows first.
-        DispatchQueue.main.async {
-            if animated {
-                withAnimation(.snappy) { proxy.scrollTo(last, anchor: .bottom) }
-            } else {
-                proxy.scrollTo(last, anchor: .bottom)
-            }
-        }
     }
 
     // MARK: - Header
@@ -439,8 +389,8 @@ struct ModelUnavailableBanner: View {
     }
 }
 
-/// A new card edging up from behind a fade below the newest item while the user pulls.
-/// Only its top shows; it turns solid once releasing will add.
+/// A new card edging down from behind the header while the user pulls down.
+/// Only its bottom shows at first; it turns solid once releasing will add.
 private struct NewCardHint: View {
     let progress: CGFloat
     let armed: Bool
@@ -464,12 +414,12 @@ private struct NewCardHint: View {
         }
         .frame(height: cardHeight)
         .padding(.horizontal, 16)
-        // Show only the emerged top of the card, fading out toward the bottom edge.
-        .frame(height: reveal, alignment: .top)
+        // Show only the emerged bottom of the card, fading out toward the header.
+        .frame(height: reveal, alignment: .bottom)
         .clipped()
         .mask {
-            LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.55),
-                                   .init(color: .clear, location: 1)],
+            LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.45),
+                                   .init(color: .black, location: 1)],
                            startPoint: .top, endPoint: .bottom)
         }
         .animation(.snappy(duration: 0.15), value: armed)

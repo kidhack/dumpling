@@ -111,14 +111,14 @@ private struct ListRow: View {
     }
 }
 
-/// One list's items, oldest first like the other tabs.
+/// One list's items, newest first like the other tabs.
 struct ListDetailView: View {
     @Bindable var list: ItemList
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var showingRename = false
 
-    private var items: [Item] { (list.items ?? []).sorted { $0.timestamp < $1.timestamp } }
+    private var items: [Item] { (list.items ?? []).sorted { $0.timestamp > $1.timestamp } }
 
     var body: some View {
         List {
