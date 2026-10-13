@@ -14,13 +14,16 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            ForEach(ItemsSection.allCases) { section in
-                Tab(section.rawValue, systemImage: section.systemImage, value: AppTab.section(section)) {
-                    ItemsListView(section: section)
-                }
+            Tab(ItemsSection.inbox.rawValue, systemImage: ItemsSection.inbox.systemImage, value: AppTab.section(.inbox)) {
+                ItemsListView(section: .inbox)
             }
             Tab("Lists", systemImage: "list.bullet", value: AppTab.lists) {
                 ListsView()
+            }
+            ForEach([ItemsSection.filed, .archived]) { section in
+                Tab(section.rawValue, systemImage: section.systemImage, value: AppTab.section(section)) {
+                    ItemsListView(section: section)
+                }
             }
         }
         .environment(pipeline)
