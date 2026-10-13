@@ -8,9 +8,9 @@ final class ItemList {
     var name: String = ""
     var createdAt: Date = Date()
 
-    /// Deleting a list keeps its items; they just leave the list.
+    /// Deleting a list keeps its items; they just leave the list. Optional because CloudKit requires it.
     @Relationship(deleteRule: .nullify, inverse: \Item.list)
-    var items: [Item] = []
+    var items: [Item]? = []
 
     init(name: String) {
         self.name = name

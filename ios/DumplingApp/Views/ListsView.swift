@@ -103,7 +103,7 @@ private struct ListRow: View {
                 .frame(width: 28)
             Text(list.name)
             Spacer()
-            Text("\(list.items.count)")
+            Text("\(list.items?.count ?? 0)")
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         }
@@ -118,7 +118,7 @@ struct ListDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingRename = false
 
-    private var items: [Item] { list.items.sorted { $0.timestamp < $1.timestamp } }
+    private var items: [Item] { (list.items ?? []).sorted { $0.timestamp < $1.timestamp } }
 
     var body: some View {
         List {

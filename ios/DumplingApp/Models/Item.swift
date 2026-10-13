@@ -3,15 +3,15 @@ import SwiftData
 
 @Model
 final class Item {
-    var id: UUID
-    var timestamp: Date
+    var id: UUID = UUID()
+    var timestamp: Date = Date()
     var contentURL: String?
     var contentText: String?
     var sourceApp: String?
     var userNote: String?
     var quickTag: String?
     /// "pending" (not sorted yet) | "filed" (in Reminders/Calendar) | "kept" (stays in Dumpling) | "failed"
-    var status: String
+    var status: String = "pending"
     var syncedAt: Date?
 
     // Set by on-device sorting

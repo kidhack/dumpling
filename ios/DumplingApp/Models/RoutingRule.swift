@@ -3,15 +3,15 @@ import SwiftData
 
 @Model
 final class RoutingRule {
-    var id: UUID
-    var pattern: String
-    var patternType: String   // "substring" | "domain" | "regex"
-    var contentType: String   // "event" | "reminder" | "music" | etc.
-    var action: String
-    var target: String
-    var isEnabled: Bool
-    var matchCount: Int
-    var createdAt: Date
+    var id: UUID = UUID()
+    var pattern: String = ""
+    var patternType: String = "substring"   // "substring" | "domain" | "regex"
+    var contentType: String = ""   // "event" | "reminder" | "music" | etc.
+    var action: String = ""
+    var target: String = ""
+    var isEnabled: Bool = true
+    var matchCount: Int = 0
+    var createdAt: Date = Date()
 
     init(
         pattern: String,
