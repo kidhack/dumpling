@@ -48,10 +48,10 @@ struct ItemsListView: View {
 
     @State private var bottomPadding: CGFloat = 0
     @State private var pull: CGFloat = 0
-    @State private var addTriggered = false
+    @State private var isDragging = false
+    @State private var addArmed = false
     @State private var showingNewItem = false
-    @State private var lastSpacerChange = Date.distantPast
-    private let addThreshold: CGFloat = 70
+    private let addThreshold: CGFloat = 100
 
     private var visible: [Item] { items.filter(section.contains) }
 
@@ -84,32 +84,34 @@ struct ItemsListView: View {
             } action: { _, free in
                 // `free` is measured with the current spacer included; solve for the spacer that fills it.
                 let target = max(0, bottomPadding + free)
-                if abs(target - bottomPadding) > 0.5 {
-                    bottomPadding = target
-                    lastSpacerChange = .now
-                }
+                if abs(target - bottomPadding) > 0.5 { bottomPadding = target }
             }
-            // Pull up past the newest item to add one (Inbox only). List doesn't report scroll phases
-            // for this bounce, so like pull-to-refresh it triggers on crossing the threshold, not on release.
+            // Pull up past the newest item to add one (Inbox only). Only real drags count: layout changes
+            // (launch, the bottom spacer settling, a sheet closing) also briefly read as overscroll.
             .onScrollGeometryChange(for: CGFloat.self) { geo in
                 geo.contentOffset.y + geo.containerSize.height - geo.contentInsets.bottom - geo.contentSize.height
             } action: { _, overscroll in
                 guard section == .inbox else { return }
-                // While the bottom spacer resizes, the list briefly reads as stretched; that isn't a pull.
-                guard Date.now.timeIntervalSince(lastSpacerChange) > 0.3 else { pull = 0; return }
                 pull = max(0, overscroll)
-                if pull >= addThreshold && !addTriggered {
-                    addTriggered = true
-                    showingNewItem = true
-                } else if pull < 10 {
-                    addTriggered = false
+                if isDragging { addArmed = pull >= addThreshold }
+            }
+            .background {
+                if section == .inbox {
+                    ScrollTouchReader { dragging in
+                        isDragging = dragging
+                        if !dragging {
+                            if addArmed { showingNewItem = true }
+                            addArmed = false
+                        }
+                    }
                 }
             }
-            .sensoryFeedback(.impact(weight: .medium), trigger: addTriggered) { _, triggered in triggered }
+            .sensoryFeedback(.impact(weight: .medium), trigger: addArmed) { _, armed in armed }
             .overlay(alignment: .bottom) {
-                if section == .inbox && pull > 4 {
-                    NewCardHint(progress: min(pull / addThreshold, 1), armed: addTriggered)
-                        .frame(height: max(0, min(pull - 10, 76)))
+                if section == .inbox && isDragging && pull > 4 {
+                    NewCardHint(progress: min(pull / addThreshold, 1), armed: addArmed,
+                                reveal: max(0, min(pull - 16, 80)))
+                        .padding(.bottom, 12)
                 }
             }
             .accessibilityActions {
@@ -233,10 +235,15 @@ struct ModelUnavailableBanner: View {
     }
 }
 
-/// A new card edging in below the newest item while the user pulls up. Solid once releasing will add.
+/// A new card edging up from behind a fade below the newest item while the user pulls.
+/// Only its top shows; it turns solid once releasing will add.
 private struct NewCardHint: View {
     let progress: CGFloat
     let armed: Bool
+    /// How much of the card has emerged, in points.
+    let reveal: CGFloat
+
+    private let cardHeight: CGFloat = 64
 
     var body: some View {
         ZStack {
@@ -251,7 +258,16 @@ private struct NewCardHint: View {
                 .opacity(progress)
                 .scaleEffect(0.6 + 0.4 * progress)
         }
+        .frame(height: cardHeight)
         .padding(.horizontal, 16)
+        // Show only the emerged top of the card, fading out toward the bottom edge.
+        .frame(height: reveal, alignment: .top)
+        .clipped()
+        .mask {
+            LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.55),
+                                   .init(color: .clear, location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+        }
         .animation(.snappy(duration: 0.15), value: armed)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
