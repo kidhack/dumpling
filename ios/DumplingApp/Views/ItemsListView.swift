@@ -229,13 +229,7 @@ struct ItemsListView: View {
         .padding(.horizontal, 20)
         .padding(.top, CategoryFilterBar.topPadding)
         .padding(.bottom, CategoryFilterBar.bottomPadding)
-        .background {
-            LinearGradient(stops: [.init(color: Color(.systemGroupedBackground).opacity(0), location: 0),
-                                   .init(color: Color(.systemGroupedBackground), location: 0.45)],
-                           startPoint: .top, endPoint: .bottom)
-                .padding(.top, -16)
-                .ignoresSafeArea(edges: .bottom)
-        }
+        .bottomBarFade()
     }
 
     private func endSelecting() {

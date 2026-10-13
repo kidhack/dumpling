@@ -18,6 +18,22 @@ struct ScreenHeader<Leading: View, Trailing: View>: View {
 }
 
 extension View {
+    /// Fades the list out behind a bar pinned above the tab bar: starts well above the bar and is solid
+    /// before reaching the bar's content, so cards don't show through its controls.
+    func bottomBarFade() -> some View {
+        background {
+            // In points rather than gradient stops, because the bar's height changes with the safe area below it.
+            VStack(spacing: 0) {
+                LinearGradient(colors: [Color(.systemGroupedBackground).opacity(0), Color(.systemGroupedBackground)],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: 40)
+                Color(.systemGroupedBackground)
+            }
+            .padding(.top, -40)
+            .ignoresSafeArea(edges: .bottom)
+        }
+    }
+
     /// Pins `header` above a scrolling list. Cards fade out beneath it once the list is scrolled;
     /// at rest nothing dims the first card.
     func screenHeader<Header: View>(@ViewBuilder _ header: () -> Header) -> some View {

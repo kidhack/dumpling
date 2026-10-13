@@ -38,13 +38,7 @@ struct CategoryFilterBar: View {
         .padding(.top, Self.topPadding)
         .padding(.bottom, Self.bottomPadding)
         // Fade cards out beneath the bar so the chips don't sit on top of them.
-        .background {
-            LinearGradient(stops: [.init(color: Color(.systemGroupedBackground).opacity(0), location: 0),
-                                   .init(color: Color(.systemGroupedBackground), location: 0.45)],
-                           startPoint: .top, endPoint: .bottom)
-                .padding(.top, -16)
-                .ignoresSafeArea(edges: .bottom)
-        }
+        .bottomBarFade()
         .animation(.snappy(duration: 0.2), value: selection)
     }
 
