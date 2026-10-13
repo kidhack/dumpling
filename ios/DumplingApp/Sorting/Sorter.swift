@@ -86,6 +86,14 @@ enum Sorter {
         var plan = Plan(category: decision.category, title: cleanTitle(decision.title, for: item),
                         start: resolved?.date, end: nil, allDay: resolved?.allDay ?? true,
                         location: decision.location)
+        // A maps link names its place exactly; it beats the model unless the user tagged the item otherwise.
+        if let place = page?.place, (category(forTag: item.quickTag) ?? .location) == .location {
+            plan.category = .location
+            plan.title = place.name
+            plan.location = place.address
+            plan.start = nil
+            return plan
+        }
         // A page's structured event data is exact; it beats the model unless the user tagged the item otherwise.
         if let event = page?.event, (category(forTag: item.quickTag) ?? .event) == .event {
             plan.category = .event

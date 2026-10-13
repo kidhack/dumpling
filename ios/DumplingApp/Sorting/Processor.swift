@@ -1,5 +1,6 @@
 import Foundation
 import FoundationModels
+import MapKit
 import OSLog
 
 private let logger = Logger(subsystem: "com.kidhack.dumpling", category: "Sorting")
@@ -43,6 +44,9 @@ enum Processor {
 
             let plan = Sorter.plan(decision, item: item, page: page)
             record(plan, on: item, pageEvent: page?.event != nil)
+            if plan.category == .location {
+                await locate(item, place: page?.place, near: recentCoordinate(in: items, excluding: item))
+            }
             await file(item, plan: plan, filer: filer)
         }
         return nil
@@ -56,6 +60,29 @@ enum Processor {
         item.location = plan.location
         item.sortError = nil
         logger.info("Sorted \(item.id, privacy: .public) as \(plan.category.rawValue, privacy: .public), start=\(plan.start?.description ?? "none", privacy: .public), fromPageData=\(pageEvent)")
+    }
+
+    /// Gives a Location item map coordinates and, when it was missing, a full address.
+    static func locate(_ item: Item, place: Place?, near: CLLocationCoordinate2D?) async {
+        if let place, place.coordinate == nil || place.address == nil,
+           let found = await Places.lookup(place, near: near) {
+            item.location = item.location ?? found.address
+            item.latitude = found.latitude
+            item.longitude = found.longitude
+        } else if let coordinate = place?.coordinate {
+            item.latitude = coordinate.latitude
+            item.longitude = coordinate.longitude
+        } else if let address = item.location, let coordinate = await Places.geocode(address) {
+            item.latitude = coordinate.latitude
+            item.longitude = coordinate.longitude
+        }
+    }
+
+    /// Where the user's most recently shared place is, to disambiguate name-only lookups.
+    private static func recentCoordinate(in items: [Item], excluding current: Item) -> CLLocationCoordinate2D? {
+        items.filter { $0.id != current.id && $0.latitude != nil && $0.longitude != nil }
+            .max { $0.timestamp < $1.timestamp }
+            .map { CLLocationCoordinate2D(latitude: $0.latitude!, longitude: $0.longitude!) }
     }
 
     /// Files an item the user edited, using its current fields.

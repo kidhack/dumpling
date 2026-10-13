@@ -16,6 +16,8 @@ struct PageInfo: Sendable, Equatable {
     var event: Event?
     /// A street address from structured business data or the page's visible text.
     var address: String?
+    /// A place named by a maps share link (Google or Apple), read from the redirected URL.
+    var place: Place?
 }
 
 enum PageReader {
@@ -27,7 +29,14 @@ enum PageReader {
                          forHTTPHeaderField: "User-Agent")
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode)
-        else { return nil }
+        else {
+            // Some map links don't load without a browser, but the link itself still names the place.
+            return Places.fromMapsLink(url).map { PageInfo(title: $0.name, place: $0) }
+        }
+        // Map share links redirect to a URL that names the place; the page itself is a search or map app shell.
+        if let place = Places.fromMapsLink(response.url ?? url) ?? Places.fromMapsLink(url) {
+            return PageInfo(title: place.name, place: place)
+        }
         return parse(html: String(decoding: data.prefix(3_000_000), as: UTF8.self))
     }
 

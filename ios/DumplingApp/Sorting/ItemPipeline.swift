@@ -22,10 +22,28 @@ final class ItemPipeline {
 
         importQueue(into: context)
         let items = (try? context.fetch(FetchDescriptor<Item>(sortBy: [SortDescriptor(\.timestamp)]))) ?? []
+        resortMapLinksOnce(items)
         modelUnavailable = await Processor.processPending(items, filer: filer)
         try? context.save()
         await upload(items)
         try? context.save()
+    }
+
+    /// Map share links sorted before they could be read came out as "Google Search"; sort those again once.
+    private func resortMapLinksOnce(_ items: [Item]) {
+        let key = "resortedMapLinks.v1"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        for item in items where !item.isFiled {
+            guard let host = item.contentURL.flatMap(URL.init(string:))?.host()?.lowercased(),
+                  ["share.google", "maps.app.goo.gl", "goo.gl", "maps.google.com", "maps.apple.com"].contains(host)
+                    || host.hasSuffix("google.com")
+            else { continue }
+            item.status = "pending"
+            item.title = nil
+            item.location = nil
+            item.sortError = nil
+        }
+        UserDefaults.standard.set(true, forKey: key)
     }
 
     private func importQueue(into context: ModelContext) {

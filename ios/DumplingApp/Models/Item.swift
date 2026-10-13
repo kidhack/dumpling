@@ -22,6 +22,8 @@ final class Item {
     var eventKitID: String?
     var sortError: String?
     var location: String?
+    var latitude: Double?
+    var longitude: Double?
     var isAllDay: Bool = false
     var archivedAt: Date?
 

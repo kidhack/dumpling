@@ -3,6 +3,7 @@
 //   ./run.sh <url>...   fetch and sort real links (don't commit private links as cases)
 import Foundation
 import FoundationModels
+import MapKit
 
 func check(_ name: String, _ ok: Bool) {
     print(ok ? "  ok  " : "  FAIL", name)
@@ -86,6 +87,16 @@ if urls.isEmpty {
     for url in urls {
         let page = await PageReader.fetch(URL(string: url)!)
         print("   page address:", page?.address ?? "-")
+        if let place = page?.place {
+            print("   maps link:", place.name, "|", place.address ?? "-")
+            // Bias toward Philadelphia, as the app would after the user's recent Philly shares.
+            let philly = CLLocationCoordinate2D(latitude: 39.9526, longitude: -75.1652)
+            if let found = await Places.lookup(place, near: philly) {
+                print("   Apple Maps:", found.name, "|", found.address ?? "-", "|", found.latitude ?? 0, found.longitude ?? 0)
+            } else {
+                print("   Apple Maps: no match")
+            }
+        }
         await show(Item(url: url, tag: nil), page: page)
         await show(Item(url: url, tag: "location"), page: page)
     }
