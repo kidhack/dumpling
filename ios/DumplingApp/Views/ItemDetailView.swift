@@ -45,22 +45,46 @@ struct ItemDetailView: View {
 
             buttons
         }
-        .navigationTitle(item.displayTitle)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+        // The same custom header as the lists: swapping the system bar in and out changed the top inset,
+        // which made the list jump when coming back from an item.
+        .screenHeader {
+            ScreenHeader {
+                Button {
+                    dismiss()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "chevron.left")
+                            .font(.title3.weight(.semibold))
+                        Text(item.displayTitle)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                    }
+                    .frame(minHeight: 44)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, -8)
+                .accessibilityLabel("Back")
+            } trailing: {
                 Button {
                     item.isHearted.toggle()
                     try? modelContext.save()
                 } label: {
                     Image(systemName: item.isHearted ? "heart.fill" : "heart")
+                        .font(.title3)
                         .foregroundStyle(item.isHearted ? .red : .primary)
                         .contentTransition(.symbolEffect(.replace))
+                        .frame(width: 44, height: 44)
+                        .contentShape(.rect)
                 }
+                .buttonStyle(.plain)
                 .sensoryFeedback(.impact(weight: .light), trigger: item.isHearted)
                 .accessibilityLabel(item.isHearted ? "Remove Heart" : "Heart")
             }
         }
+        .navigationTitle(item.displayTitle)
+        .toolbar(.hidden, for: .navigationBar)
         .onDisappear { try? modelContext.save() }
         .task { await locateIfNeeded() }
         // Pull down to sort the item again from scratch (filed items just reload their event or reminder).
@@ -193,6 +217,8 @@ struct ItemDetailView: View {
                 EventView(event: event)
                     .navigationTitle(event.title ?? "Event")
                     .navigationBarTitleDisplayMode(.inline)
+                    // Apple's event screen keeps its Edit button in the system bar.
+                    .toolbar(.visible, for: .navigationBar)
             } label: {
                 Label {
                     VStack(alignment: .leading) {
