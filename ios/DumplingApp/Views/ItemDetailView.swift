@@ -1,5 +1,6 @@
 import EventKit
 import EventKitUI
+import MapKit
 import SwiftUI
 
 struct ItemDetailView: View {
@@ -26,6 +27,10 @@ struct ItemDetailView: View {
                 } else {
                     detailRows
                 }
+                if let latitude = item.latitude, let longitude = item.longitude {
+                    PlaceMapRow(name: item.displayTitle, address: item.location,
+                                coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
+                }
                 Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
                     .foregroundStyle(.secondary)
             } footer: {
@@ -40,6 +45,14 @@ struct ItemDetailView: View {
         .navigationTitle(item.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { try? modelContext.save() }
+        .task { await locateIfNeeded() }
+    }
+
+    /// Items sorted before places had coordinates get them the first time they're opened.
+    private func locateIfNeeded() async {
+        guard item.latitude == nil, item.location != nil,
+              category == .location || category == .event else { return }
+        await Processor.locate(item, place: nil, near: nil)
     }
 
     // MARK: - Rows
@@ -104,7 +117,9 @@ struct ItemDetailView: View {
     private var filedRows: some View {
         let live = item.eventKitID.flatMap(filer.calendarItem(id:))
         LabeledContent("Filed", value: item.filedTo ?? "")
-        if let event = live as? EKEvent {
+        if item.isSavedForLater {
+            EmptyView()
+        } else if let event = live as? EKEvent {
             NavigationLink {
                 EventView(event: event)
                     .navigationTitle(event.title ?? "Event")
@@ -138,61 +153,76 @@ struct ItemDetailView: View {
     // MARK: - Buttons
 
     private var isMissingFromCalendar: Bool {
-        item.isFiled && filer.canRead(entityType) && item.eventKitID.flatMap(filer.calendarItem(id:)) == nil
+        item.isFiled && item.eventKitID != nil && filer.canRead(entityType)
+            && item.eventKitID.flatMap(filer.calendarItem(id:)) == nil
     }
 
-    @ViewBuilder
     private var buttons: some View {
-        let showFile = !item.isFiled && (category == .event || category == .task)
-        let showArchive = !item.isFiled || isMissingFromCalendar
-        if showFile || showArchive {
-            Section {
-                VStack(spacing: 10) {
-                    if showFile {
-                        Button {
-                            Task { await fileNow() }
-                        } label: {
-                            HStack {
-                                Text(category == .event ? "Add to Calendar" : "Add to Reminders")
-                                if isFiling { ProgressView() }
-                            }
-                            .frame(maxWidth: .infinity)
+        Section {
+            VStack(spacing: 10) {
+                if !item.isFiled && (category == .event || category == .task) {
+                    Button {
+                        Task { await fileNow() }
+                    } label: {
+                        HStack {
+                            Text(category == .event ? "Add to Calendar" : "Add to Reminders")
+                            if isFiling { ProgressView() }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(isFiling || (category == .event && item.relevantDate == nil))
+                        .frame(maxWidth: .infinity)
                     }
-                    if isMissingFromCalendar {
-                        Button {
-                            item.status = "kept"
-                            item.eventKitID = nil
-                            item.filedTo = nil
-                        } label: {
-                            Text("Move to Inbox").frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                    } else if item.isArchived {
-                        Button {
-                            item.archivedAt = nil
-                            dismiss()
-                        } label: {
-                            Text("Move to Inbox").frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                    } else {
-                        Button {
-                            item.archivedAt = .now
-                            dismiss()
-                        } label: {
-                            Label("Archive", systemImage: "archivebox").frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isFiling || (category == .event && item.relevantDate == nil))
                 }
-                .controlSize(.large)
+                if !item.isFiled {
+                    Button {
+                        item.saveForLater()
+                        dismiss()
+                    } label: {
+                        Label("Save for Later", systemImage: "bookmark").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                shareButton
+                if item.isSavedForLater || isMissingFromCalendar || item.isArchived {
+                    Button {
+                        item.moveToInbox()
+                        dismiss()
+                    } label: {
+                        Label("Move to Inbox", systemImage: "tray.and.arrow.up").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                } else if !item.isFiled {
+                    Button {
+                        item.archivedAt = .now
+                        dismiss()
+                    } label: {
+                        Label("Archive", systemImage: "archivebox").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets())
+            .controlSize(.large)
         }
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets())
+    }
+
+    /// The system share sheet: Messages, Mail, Notes, Reminders and so on.
+    @ViewBuilder
+    private var shareButton: some View {
+        let label = Label("Share", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
+        let message = Text([item.userNote, item.location].compactMap { $0 }.joined(separator: "\n"))
+        Group {
+            if let url = item.contentURL.flatMap(URL.init(string:)) {
+                ShareLink(item: url, subject: Text(item.displayTitle), message: message) { label }
+            } else {
+                let text = [item.title, item.contentText, item.location, item.userNote]
+                    .compactMap { $0 }.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+                    .joined(separator: "\n")
+                ShareLink(item: text, subject: Text(item.displayTitle)) { label }
+            }
+        }
+        .buttonStyle(.bordered)
     }
 
     private func fileNow() async {

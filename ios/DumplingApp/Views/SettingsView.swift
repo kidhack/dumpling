@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var relayURL: String = AppGroup.relayURL
     @State private var authToken: String = AppGroup.authToken
 
@@ -27,7 +28,12 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
             .onChange(of: relayURL) { _, value in
                 AppGroup.relayURL = value.trimmingCharacters(in: .whitespacesAndNewlines)
             }

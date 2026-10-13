@@ -85,10 +85,11 @@ enum Processor {
             .map { CLLocationCoordinate2D(latitude: $0.latitude!, longitude: $0.longitude!) }
     }
 
-    /// Files an item the user edited, using its current fields.
-    static func fileNow(_ item: Item, filer: Filer) async {
+    /// Files an item the user edited, using its current fields. `target` files a link or idea as a
+    /// reminder or event without changing its category.
+    static func fileNow(_ item: Item, as target: ItemCategory? = nil, filer: Filer) async {
         let plan = Sorter.Plan(
-            category: item.category.flatMap(ItemCategory.init(rawValue:)) ?? .other,
+            category: target ?? item.category.flatMap(ItemCategory.init(rawValue:)) ?? .other,
             title: item.displayTitle, start: item.relevantDate, end: nil,
             allDay: item.isAllDay, location: item.location
         )

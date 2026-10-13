@@ -6,6 +6,7 @@ struct ShareSheetView: View {
 
     @State private var userNote = ""
     @State private var selectedTag: CategoryKind? = nil
+    @FocusState private var noteFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -22,17 +23,28 @@ struct ShareSheetView: View {
 
                 Section("Note") {
                     TextField("Optional", text: $userNote, axis: .vertical)
-                        .lineLimit(3...6)
+                        .lineLimit(2...6)
+                        .focused($noteFocused)
                 }
 
                 Section {
+                    // Picking a category saves right away; Save is for sharing without one.
                     CategoryButtons(selection: $selectedTag)
+                        .disabled(viewModel.isSaving)
                 }
 
                 if let message = viewModel.errorMessage {
                     Section {
                         Text(message).foregroundStyle(.red)
                     }
+                }
+            }
+            .onAppear { noteFocused = true }
+            .onChange(of: selectedTag) { _, tag in
+                guard tag != nil else { return }
+                Task {
+                    while viewModel.isExtracting { try? await Task.sleep(for: .milliseconds(100)) }
+                    await save()
                 }
             }
             .navigationTitle("Dumpling")

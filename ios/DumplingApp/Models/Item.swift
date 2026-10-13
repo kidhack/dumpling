@@ -70,6 +70,22 @@ final class Item {
     var categoryLabel: String? { category?.capitalized }
 
     var isFiled: Bool { status == "filed" }
+    /// Filed by the user to keep, without a Calendar or Reminders entry.
+    var isSavedForLater: Bool { isFiled && eventKitID == nil }
+
+    func saveForLater() {
+        status = "filed"
+        filedTo = "Saved for Later"
+        eventKitID = nil
+        archivedAt = nil
+    }
+
+    func moveToInbox() {
+        status = "kept"
+        filedTo = nil
+        eventKitID = nil
+        archivedAt = nil
+    }
     var isArchived: Bool { archivedAt != nil }
     /// Open items: not filed, not archived.
     var isInInbox: Bool { !isFiled && !isArchived }
