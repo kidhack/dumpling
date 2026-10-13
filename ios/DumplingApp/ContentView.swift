@@ -5,7 +5,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var pipeline = ItemPipeline()
-    @State private var selection: AppTab = .section(.inbox)
+    @State private var selection: AppTab = Self.launchTab
     @State private var filterResets: [ItemsSection: Int] = [:]
 
     /// Tapping the tab you're already on resets that tab's filter to All.
@@ -23,6 +23,19 @@ struct ContentView: View {
     enum AppTab: Hashable {
         case section(ItemsSection)
         case lists
+    }
+
+    /// Debug builds can open on a given tab (env DUMPLING_START_TAB=lists) so screens can be checked without tapping.
+    private static var launchTab: AppTab {
+        #if DEBUG
+        switch ProcessInfo.processInfo.environment["DUMPLING_START_TAB"] {
+        case "lists": return .lists
+        case "filed": return .section(.filed)
+        case "archived": return .section(.archived)
+        default: break
+        }
+        #endif
+        return .section(.inbox)
     }
 
     var body: some View {

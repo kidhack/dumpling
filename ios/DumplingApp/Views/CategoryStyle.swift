@@ -16,7 +16,8 @@ struct CategoryIcon: View {
         Image(systemName: category?.systemImage ?? "hourglass")
             .font(.title3)
             .foregroundStyle(category?.tint ?? .secondary)
-            .frame(width: 28)
+            // Fixed height so tall symbols (the map pin) don't make some cards taller than others.
+            .frame(width: 28, height: 22)
             .accessibilityLabel(category?.label ?? "Not sorted yet")
     }
 }

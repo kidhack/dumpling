@@ -100,7 +100,7 @@ private struct ListRow: View {
             Image(systemName: "list.bullet")
                 .font(.title3)
                 .foregroundStyle(.teal)
-                .frame(width: 28)
+                .frame(width: 28, height: 22)
             Text(list.name)
                 .lineLimit(1)
             Spacer()
