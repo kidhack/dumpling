@@ -33,9 +33,10 @@ struct ListsView: View {
                 }
             }
             .listSectionSpacing(10)
-            .safeAreaInset(edge: .top) {
-                HStack {
-                    Spacer()
+            .screenHeader {
+                ScreenHeader {
+                    EmptyView()
+                } trailing: {
                     Button {
                         showingNewList = true
                     } label: {
@@ -46,7 +47,6 @@ struct ListsView: View {
                     }
                     .accessibilityLabel("New List")
                 }
-                .padding(.horizontal, 8)
             }
             .overlay {
                 if lists.isEmpty {
@@ -102,6 +102,7 @@ private struct ListRow: View {
                 .foregroundStyle(.teal)
                 .frame(width: 28)
             Text(list.name)
+                .lineLimit(1)
             Spacer()
             Text("\(list.items?.count ?? 0)")
                 .foregroundStyle(.secondary)
@@ -140,16 +141,26 @@ struct ListDetailView: View {
             }
         }
         .listSectionSpacing(10)
-        .overlay {
-            if items.isEmpty {
-                ContentUnavailableView("Empty List", systemImage: "list.bullet",
-                                       description: Text("Swipe right on an Inbox item, or open it, to move it here. Items removed from a list go back to the Inbox."))
-            }
-        }
-        .navigationTitle(list.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+        .screenHeader {
+            ScreenHeader {
+                Button {
+                    dismiss()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "chevron.left")
+                            .font(.title3.weight(.semibold))
+                        Text(list.name)
+                            .font(.title2.bold())
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                    }
+                    .frame(minHeight: 44)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, -8)
+                .accessibilityLabel("Back to Lists")
+            } trailing: {
                 Menu {
                     Button("Rename", systemImage: "pencil") { showingRename = true }
                     Button("Delete List", systemImage: "trash", role: .destructive) {
@@ -159,10 +170,21 @@ struct ListDetailView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
+                        .font(.title3.weight(.semibold))
+                        .frame(width: 44, height: 44)
+                        .contentShape(.rect)
                 }
                 .accessibilityLabel("List Options")
             }
         }
+        .overlay {
+            if items.isEmpty {
+                ContentUnavailableView("Empty List", systemImage: "list.bullet",
+                                       description: Text("Swipe right on an Inbox item, or open it, to move it here. Items removed from a list go back to the Inbox."))
+            }
+        }
+        .navigationTitle(list.name)
+        .toolbar(.hidden, for: .navigationBar)
         .listNameAlert("Rename List", isPresented: $showingRename, initialName: list.name) { name in
             list.name = name
             try? modelContext.save()

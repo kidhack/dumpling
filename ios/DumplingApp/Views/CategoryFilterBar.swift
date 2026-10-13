@@ -5,10 +5,29 @@ struct CategoryFilterBar: View {
     @Binding var selection: CategoryKind?
     let available: [CategoryKind]
 
+    /// Shared with the Select mode action bar so switching between them doesn't move anything.
+    static let chipHeight: CGFloat = 36
+    static let topPadding: CGFloat = 6
+    /// Room above the tab bar so a reach for a filter doesn't land on a tab.
+    static let bottomPadding: CGFloat = 24
+
+    @State private var chipFrames: [String: CGRect] = [:]
+
     var body: some View {
         // The selected pill stretches so the row spans the screen; with too many categories to fit, it scrolls.
         ViewThatFits(in: .horizontal) {
             chips(stretchSelected: true)
+                .coordinateSpace(.named("filterChips"))
+                // Slide a finger along the row to switch filters. Starts after a few points of movement,
+                // so plain taps still go to the buttons.
+                .highPriorityGesture(
+                    DragGesture(minimumDistance: 6, coordinateSpace: .named("filterChips"))
+                        .onChanged { drag in
+                            guard let key = chipFrames.first(where: { $0.value.contains(drag.location) })?.key else { return }
+                            let kind = CategoryKind(rawValue: key)
+                            if kind != selection { selection = kind }
+                        }
+                )
                 .padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
                 chips(stretchSelected: false)
@@ -16,9 +35,8 @@ struct CategoryFilterBar: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
-        .padding(.top, 6)
-        // Room above the tab bar so a reach for a filter doesn't land on a tab.
-        .padding(.bottom, 24)
+        .padding(.top, Self.topPadding)
+        .padding(.bottom, Self.bottomPadding)
         // Fade cards out beneath the bar so the chips don't sit on top of them.
         .background {
             LinearGradient(stops: [.init(color: Color(.systemGroupedBackground).opacity(0), location: 0),
@@ -31,7 +49,7 @@ struct CategoryFilterBar: View {
     }
 
     private func chips(stretchSelected: Bool) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 5) {
             chip(nil, label: "All", systemImage: "square.stack", tint: .accentColor, stretch: stretchSelected)
             ForEach(available) { kind in
                 chip(kind, label: kind.label, systemImage: kind.systemImage, tint: kind.tint, stretch: stretchSelected)
@@ -54,9 +72,12 @@ struct CategoryFilterBar: View {
                 }
             }
             .foregroundStyle(isSelected ? .white : tint)
-            .padding(.horizontal, isSelected ? 14 : 0)
-            .frame(minWidth: 38, maxWidth: isSelected && stretch ? .infinity : nil, minHeight: 38)
+            .padding(.horizontal, isSelected ? 12 : 0)
+            .frame(minWidth: Self.chipHeight, maxWidth: isSelected && stretch ? .infinity : nil, minHeight: Self.chipHeight)
             .background(isSelected ? tint : tint.opacity(0.15), in: .capsule)
+        }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("filterChips")) } action: { frame in
+            chipFrames[kind?.rawValue ?? "all"] = frame
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

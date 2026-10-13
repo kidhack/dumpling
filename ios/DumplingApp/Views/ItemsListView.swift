@@ -41,6 +41,8 @@ enum ItemsSection: String, CaseIterable, Identifiable {
 
 struct ItemsListView: View {
     let section: ItemsSection
+    /// Bumped when the user taps this tab while already on it; resets the filter to All.
+    var filterResetToken = 0
     @Environment(\.modelContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
     /// Newest first.
@@ -55,7 +57,6 @@ struct ItemsListView: View {
     private let addThreshold: CGFloat = 100
 
     @State private var filter: CategoryKind?
-    @State private var isScrolledDown = false
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<UUID>()
     @State private var listPickerItems: [Item] = []
@@ -94,11 +95,6 @@ struct ItemsListView: View {
             }
             .environment(\.editMode, $editMode)
             .listSectionSpacing(10)
-            .onScrollGeometryChange(for: Bool.self) { geo in
-                geo.contentOffset.y + geo.contentInsets.top > 2
-            } action: { _, scrolled in
-                withAnimation(.easeOut(duration: 0.2)) { isScrolledDown = scrolled }
-            }
             // Pull down past the newest item to add one (Inbox only). Only real drags count: layout changes
             // (launch, a sheet closing) can briefly read as overscroll.
             .onScrollGeometryChange(for: CGFloat.self) { geo in
@@ -136,22 +132,12 @@ struct ItemsListView: View {
             .sheet(isPresented: $showingListPicker) {
                 ListPickerSheet(items: listPickerItems) { endSelecting() }
             }
-            .safeAreaInset(edge: .top) {
+            .screenHeader {
                 VStack(spacing: 8) {
                     header
                     if section == .inbox, let reason = pipeline.modelUnavailable {
                         ModelUnavailableBanner(reason: reason)
                     }
-                }
-                .padding(.bottom, 4)
-                // Fade cards out as they scroll up beneath the header. Hidden at rest so the first card isn't dimmed.
-                .background {
-                    LinearGradient(stops: [.init(color: Color(.systemGroupedBackground), location: 0.5),
-                                           .init(color: Color(.systemGroupedBackground).opacity(0), location: 1)],
-                                   startPoint: .top, endPoint: .bottom)
-                        .padding(.bottom, -44)
-                        .ignoresSafeArea(edges: .top)
-                        .opacity(isScrolledDown ? 1 : 0)
                 }
             }
             .sheet(isPresented: $showingAbout) { AboutView() }
@@ -178,17 +164,18 @@ struct ItemsListView: View {
             }
         }
         .onAppear { Task { await pipeline.refresh(modelContext) } }
+        .onChange(of: filterResetToken) { _, _ in filter = nil }
     }
 
     // MARK: - Header
 
     private var header: some View {
-        HStack(spacing: 4) {
+        ScreenHeader {
             if section == .inbox {
                 Text("Dumpling")
                     .font(.title2.bold())
             }
-            Spacer()
+        } trailing: {
             if !inSection.isEmpty {
                 Button(isSelecting ? "Done" : "Select") {
                     if isSelecting { endSelecting() } else { editMode = .active }
@@ -209,9 +196,6 @@ struct ItemsListView: View {
                 .accessibilityLabel("Menu")
             }
         }
-        .padding(.leading, 20)
-        .padding(.trailing, 8)
-        .frame(minHeight: 44)
     }
 
     // MARK: - Selection
@@ -240,12 +224,14 @@ struct ItemsListView: View {
             }
         }
         .disabled(selection.isEmpty)
+        // Same footprint as the filter row it replaces, so entering Select moves nothing.
+        .frame(height: CategoryFilterBar.chipHeight)
         .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 16)
+        .padding(.top, CategoryFilterBar.topPadding)
+        .padding(.bottom, CategoryFilterBar.bottomPadding)
         .background {
             LinearGradient(stops: [.init(color: Color(.systemGroupedBackground).opacity(0), location: 0),
-                                   .init(color: Color(.systemGroupedBackground), location: 0.4)],
+                                   .init(color: Color(.systemGroupedBackground), location: 0.45)],
                            startPoint: .top, endPoint: .bottom)
                 .padding(.top, -16)
                 .ignoresSafeArea(edges: .bottom)
@@ -344,7 +330,7 @@ struct ItemRowView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.displayTitle)
-                    .lineLimit(2)
+                    .lineLimit(1)
 
                 if let note = item.userNote,
                    note.caseInsensitiveCompare(item.displayTitle) != .orderedSame {
@@ -365,8 +351,33 @@ struct ItemRowView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            Spacer(minLength: 0)
+            if item.heartCount > 0 {
+                HeartBadge(count: item.heartCount)
+            }
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// A red heart; a second, lighter one sits behind it once more than one person has hearted the item.
+struct HeartBadge: View {
+    let count: Int
+
+    var body: some View {
+        ZStack {
+            if count > 1 {
+                Image(systemName: "heart.fill")
+                    .foregroundStyle(.red.opacity(0.45))
+                    .offset(x: -7, y: -3)
+            }
+            Image(systemName: "heart.fill")
+                .foregroundStyle(.red)
+        }
+        .font(.subheadline)
+        .accessibilityElement()
+        .accessibilityLabel(count > 1 ? "\(count) hearts" : "Hearted")
     }
 }
 

@@ -27,6 +27,10 @@ final class Item {
     var isAllDay: Bool = false
     var archivedAt: Date?
     var list: ItemList?
+    /// The user's own heart.
+    var isHearted: Bool = false
+    /// Hearts from other people on a shared list. Always 0 until lists can be shared.
+    var otherHearts: Int = 0
 
     init(
         id: UUID = UUID(),
@@ -69,6 +73,8 @@ final class Item {
     }
 
     var categoryLabel: String? { category?.capitalized }
+
+    var heartCount: Int { (isHearted ? 1 : 0) + otherHearts }
 
     var isFiled: Bool { status == "filed" }
     /// Filed by the user to keep, without a Calendar or Reminders entry.

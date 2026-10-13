@@ -6,6 +6,19 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var pipeline = ItemPipeline()
     @State private var selection: AppTab = .section(.inbox)
+    @State private var filterResets: [ItemsSection: Int] = [:]
+
+    /// Tapping the tab you're already on resets that tab's filter to All.
+    private var tabSelection: Binding<AppTab> {
+        Binding {
+            selection
+        } set: { tapped in
+            if tapped == selection, case .section(let section) = tapped {
+                filterResets[section, default: 0] += 1
+            }
+            selection = tapped
+        }
+    }
 
     enum AppTab: Hashable {
         case section(ItemsSection)
@@ -13,16 +26,16 @@ struct ContentView: View {
     }
 
     var body: some View {
-        TabView(selection: $selection) {
+        TabView(selection: tabSelection) {
             Tab(ItemsSection.inbox.rawValue, systemImage: ItemsSection.inbox.systemImage, value: AppTab.section(.inbox)) {
-                ItemsListView(section: .inbox)
+                ItemsListView(section: .inbox, filterResetToken: filterResets[.inbox, default: 0])
             }
             Tab("Lists", systemImage: "list.bullet", value: AppTab.lists) {
                 ListsView()
             }
             ForEach([ItemsSection.filed, .archived]) { section in
                 Tab(section.rawValue, systemImage: section.systemImage, value: AppTab.section(section)) {
-                    ItemsListView(section: section)
+                    ItemsListView(section: section, filterResetToken: filterResets[section, default: 0])
                 }
             }
         }

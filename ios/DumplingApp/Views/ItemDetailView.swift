@@ -46,6 +46,20 @@ struct ItemDetailView: View {
         }
         .navigationTitle(item.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    item.isHearted.toggle()
+                    try? modelContext.save()
+                } label: {
+                    Image(systemName: item.isHearted ? "heart.fill" : "heart")
+                        .foregroundStyle(item.isHearted ? .red : .primary)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .sensoryFeedback(.impact(weight: .light), trigger: item.isHearted)
+                .accessibilityLabel(item.isHearted ? "Remove Heart" : "Heart")
+            }
+        }
         .onDisappear { try? modelContext.save() }
         .task { await locateIfNeeded() }
         .sheet(isPresented: $showingListPicker) { ListPickerSheet(items: [item]) }
