@@ -2,6 +2,7 @@ import EventKit
 import EventKitUI
 import MapKit
 import SwiftUI
+import SwiftData
 
 struct ItemDetailView: View {
     @Bindable var item: Item
@@ -62,6 +63,8 @@ struct ItemDetailView: View {
         }
         .onDisappear { try? modelContext.save() }
         .task { await locateIfNeeded() }
+        // Pull down to sort the item again from scratch (filed items just reload their event or reminder).
+        .refreshable { await resort() }
         .sheet(isPresented: $showingListPicker) { ListPickerSheet(items: [item]) }
     }
 
@@ -85,6 +88,33 @@ struct ItemDetailView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(item.list.map { "List: \($0.name)" } ?? "Add to List")
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+    }
+
+    private func resort() async {
+        guard !item.isFiled else {
+            accessRefresh += 1
+            return
+        }
+        if let reason = Sorter.unavailableReason {
+            item.sortError = reason == .appleIntelligenceNotEnabled
+                ? "Turn on Apple Intelligence in Settings to sort this again."
+                : "On-device sorting isn't available right now."
+            return
+        }
+        // Keep what the user chose (note, tag, list, heart); recompute everything sorting derives.
+        item.status = "pending"
+        item.category = nil
+        item.title = nil
+        item.relevantDate = nil
+        item.isAllDay = false
+        item.location = nil
+        item.latitude = nil
+        item.longitude = nil
+        item.sortError = nil
+        let all = (try? modelContext.fetch(FetchDescriptor<Item>())) ?? [item]
+        _ = await Processor.processPending([item] + all.filter { $0.id != item.id && $0.status != "pending" },
+                                           filer: filer)
+        try? modelContext.save()
     }
 
     /// Items sorted before places had coordinates get them the first time they're opened.
