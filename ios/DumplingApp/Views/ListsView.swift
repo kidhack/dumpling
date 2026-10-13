@@ -143,7 +143,7 @@ struct ListDetailView: View {
         .overlay {
             if items.isEmpty {
                 ContentUnavailableView("Empty List", systemImage: "list.bullet",
-                                       description: Text("Swipe right on an item, or open it, to move it here."))
+                                       description: Text("Swipe right on an Inbox item, or open it, to move it here. Items removed from a list go back to the Inbox."))
             }
         }
         .navigationTitle(list.name)

@@ -88,8 +88,8 @@ final class Item {
         archivedAt = nil
     }
     var isArchived: Bool { archivedAt != nil }
-    /// Open items: not filed, not archived.
-    var isInInbox: Bool { !isFiled && !isArchived }
+    /// Open items: not filed, archived, or put in a list (a list is where it was filed to).
+    var isInInbox: Bool { !isFiled && !isArchived && list == nil }
     /// Filed items that haven't been archived.
     var isInFiled: Bool { isFiled && !isArchived }
 
