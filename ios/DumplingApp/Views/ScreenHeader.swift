@@ -50,7 +50,9 @@ private struct ScreenHeaderModifier<Header: View>: ViewModifier {
             .onScrollGeometryChange(for: Bool.self) { geo in
                 geo.contentOffset.y + geo.contentInsets.top > 2
             } action: { _, scrolled in
-                withAnimation(.easeOut(duration: 0.2)) { isScrolled = scrolled }
+                // No withAnimation here: it animated the list's top inset mid-bounce, so pulling past the
+                // top settled near row 2 and then snapped. Only the fade's opacity animates (below).
+                isScrolled = scrolled
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 header
@@ -62,6 +64,7 @@ private struct ScreenHeaderModifier<Header: View>: ViewModifier {
                             .padding(.bottom, -44)
                             .ignoresSafeArea(edges: .top)
                             .opacity(isScrolled ? 1 : 0)
+                            .animation(.easeOut(duration: 0.2), value: isScrolled)
                     }
             }
     }
