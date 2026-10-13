@@ -26,6 +26,7 @@ final class Item {
     var longitude: Double?
     var isAllDay: Bool = false
     var archivedAt: Date?
+    var list: ItemList?
 
     init(
         id: UUID = UUID(),
@@ -89,6 +90,8 @@ final class Item {
     var isArchived: Bool { archivedAt != nil }
     /// Open items: not filed, not archived.
     var isInInbox: Bool { !isFiled && !isArchived }
+    /// Filed items that haven't been archived.
+    var isInFiled: Bool { isFiled && !isArchived }
 
     var preview: String {
         if let url = contentURL { return url }

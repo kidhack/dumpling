@@ -9,6 +9,7 @@ struct ItemDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var isFiling = false
     @State private var accessRefresh = 0
+    @State private var showingListPicker = false
     @Environment(\.dismiss) private var dismiss
 
     private var category: ItemCategory {
@@ -27,6 +28,7 @@ struct ItemDetailView: View {
                 } else {
                     detailRows
                 }
+                listRow
                 if let latitude = item.latitude, let longitude = item.longitude {
                     PlaceMapRow(name: item.displayTitle, address: item.location,
                                 coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
@@ -46,6 +48,29 @@ struct ItemDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { try? modelContext.save() }
         .task { await locateIfNeeded() }
+        .sheet(isPresented: $showingListPicker) { ListPickerSheet(items: [item]) }
+    }
+
+    private var listRow: some View {
+        Button {
+            showingListPicker = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "list.bullet")
+                    .foregroundStyle(.teal)
+                    .frame(width: 22)
+                Text(item.list?.name ?? "Add to List")
+                    .foregroundStyle(item.list == nil ? .secondary : .primary)
+                Spacer()
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(item.list.map { "List: \($0.name)" } ?? "Add to List")
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
     }
 
     /// Items sorted before places had coordinates get them the first time they're opened.
@@ -183,7 +208,15 @@ struct ItemDetailView: View {
                     .buttonStyle(.bordered)
                 }
                 shareButton
-                if item.isSavedForLater || isMissingFromCalendar || item.isArchived {
+                if item.isArchived {
+                    Button {
+                        item.archivedAt = nil
+                        dismiss()
+                    } label: {
+                        Label("Unarchive", systemImage: "tray.and.arrow.up").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                } else if item.isSavedForLater || isMissingFromCalendar {
                     Button {
                         item.moveToInbox()
                         dismiss()

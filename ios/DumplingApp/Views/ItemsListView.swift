@@ -17,8 +17,8 @@ enum ItemsSection: String, CaseIterable, Identifiable {
     func contains(_ item: Item) -> Bool {
         switch self {
         case .inbox: return item.isInInbox
-        case .filed: return item.isFiled
-        case .archived: return item.isArchived && !item.isFiled
+        case .filed: return item.isInFiled
+        case .archived: return item.isArchived
         }
     }
 
@@ -53,16 +53,24 @@ struct ItemsListView: View {
     @State private var showingNewItem = false
     @State private var showingAbout = false
     @State private var showingSettings = false
+    @State private var didInitialScroll = false
     private let addThreshold: CGFloat = 100
 
     @State private var filter: CategoryKind?
+    @State private var editMode: EditMode = .inactive
+    @State private var selection = Set<UUID>()
+    @State private var listPickerItems: [Item] = []
+    @State private var showingListPicker = false
 
+    private var isSelecting: Bool { editMode.isEditing }
     private var inSection: [Item] { items.filter(section.contains) }
 
     private var visible: [Item] {
         guard let filter else { return inSection }
         return inSection.filter { $0.category == filter.rawValue }
     }
+
+    private var selectedItems: [Item] { visible.filter { selection.contains($0.id) } }
 
     /// Categories present in this tab, plus the selected one so it doesn't vanish while chosen.
     private var availableFilters: [CategoryKind] {
@@ -73,7 +81,7 @@ struct ItemsListView: View {
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
-            List {
+            List(selection: $selection) {
                 // List ignores bottom alignment, so a clear spacer pushes short lists down onto the tab bar.
                 // It gets its own section so it never touches the first card's corners.
                 if !visible.isEmpty && bottomPadding > 0 {
@@ -82,6 +90,7 @@ struct ItemsListView: View {
                             .frame(height: bottomPadding)
                             .listRowBackground(Color.clear)
                             .listRowInsets(EdgeInsets())
+                            .selectionDisabled()
                     }
                 }
                 // One section per item so each is its own card.
@@ -90,12 +99,14 @@ struct ItemsListView: View {
                         NavigationLink(value: item) {
                             ItemRowView(item: item, section: section)
                         }
+                        .tag(item.id)
                         .id(item.id)
-                        .swipeActions(edge: .trailing) { swipeActions(for: item) }
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) { fileActions(for: item) }
+                        .swipeActions(edge: .trailing) { trailingActions(for: item) }
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingActions(for: item) }
                     }
                 }
             }
+            .environment(\.editMode, $editMode)
             .listSectionSpacing(10)
             .onScrollGeometryChange(for: CGFloat.self) { geo in
                 geo.containerSize.height - geo.contentInsets.top - geo.contentInsets.bottom - geo.contentSize.height
@@ -109,7 +120,7 @@ struct ItemsListView: View {
             .onScrollGeometryChange(for: CGFloat.self) { geo in
                 geo.contentOffset.y + geo.containerSize.height - geo.contentInsets.bottom - geo.contentSize.height
             } action: { _, overscroll in
-                guard section == .inbox else { return }
+                guard section == .inbox, !isSelecting else { return }
                 pull = max(0, overscroll)
                 if isDragging { addArmed = pull >= addThreshold }
             }
@@ -126,7 +137,7 @@ struct ItemsListView: View {
             }
             .sensoryFeedback(.impact(weight: .medium), trigger: addArmed) { _, armed in armed }
             .overlay(alignment: .bottom) {
-                if section == .inbox && isDragging && pull > 4 {
+                if section == .inbox && isDragging && pull > 4 && !isSelecting {
                     NewCardHint(progress: min(pull / addThreshold, 1), armed: addArmed,
                                 reveal: max(0, min(pull - 16, 80)))
                         .padding(.bottom, 12)
@@ -138,26 +149,24 @@ struct ItemsListView: View {
                 }
             }
             .sheet(isPresented: $showingNewItem) { NewItemView() }
-            // Long lists open at the newest item and stay there as items arrive.
-            .defaultScrollAnchor(.bottom, for: .initialOffset)
-            .defaultScrollAnchor(.bottom, for: .sizeChanges)
+            .sheet(isPresented: $showingListPicker) {
+                ListPickerSheet(items: listPickerItems) { endSelecting() }
+            }
             .safeAreaInset(edge: .top) {
-                if section == .inbox {
-                    VStack(spacing: 8) {
-                        header
-                        if let reason = pipeline.modelUnavailable {
-                            ModelUnavailableBanner(reason: reason)
-                        }
+                VStack(spacing: 8) {
+                    header
+                    if section == .inbox, let reason = pipeline.modelUnavailable {
+                        ModelUnavailableBanner(reason: reason)
                     }
-                    .padding(.bottom, 4)
-                    // Fade cards out as they scroll up beneath the header.
-                    .background {
-                        LinearGradient(stops: [.init(color: Color(.systemGroupedBackground), location: 0.6),
-                                               .init(color: Color(.systemGroupedBackground).opacity(0), location: 1)],
-                                       startPoint: .top, endPoint: .bottom)
-                            .padding(.bottom, -16)
-                            .ignoresSafeArea(edges: .top)
-                    }
+                }
+                .padding(.bottom, 4)
+                // Fade cards out as they scroll up beneath the header.
+                .background {
+                    LinearGradient(stops: [.init(color: Color(.systemGroupedBackground), location: 0.5),
+                                           .init(color: Color(.systemGroupedBackground).opacity(0), location: 1)],
+                                   startPoint: .top, endPoint: .bottom)
+                        .padding(.bottom, -44)
+                        .ignoresSafeArea(edges: .top)
                 }
             }
             .sheet(isPresented: $showingAbout) { AboutView() }
@@ -176,19 +185,27 @@ struct ItemsListView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if !inSection.isEmpty {
+                if isSelecting {
+                    selectionBar
+                } else if !inSection.isEmpty {
                     CategoryFilterBar(selection: $filter, available: availableFilters)
                 }
             }
-            // List ignores defaultScrollAnchor for long lists, so jump to the newest card explicitly.
+            // List ignores defaultScrollAnchor for long lists, so jump to the newest card explicitly —
+            // but only on first open, so returning from an item keeps your place.
             .task {
+                guard !didInitialScroll else { return }
                 // The rows aren't laid out on the first pass, so scroll once they are.
                 for delay in [50, 300] {
                     try? await Task.sleep(for: .milliseconds(delay))
                     scrollToNewest(proxy, animated: false)
                 }
+                didInitialScroll = true
             }
-            .onChange(of: visible.last?.id) { _, _ in scrollToNewest(proxy, animated: true) }
+            .onChange(of: inSection.count) { old, new in
+                if new > old && !isSelecting { scrollToNewest(proxy, animated: true) }
+            }
+            .onChange(of: filter) { _, _ in scrollToNewest(proxy, animated: false) }
             }
         }
         .onAppear { Task { await pipeline.refresh(modelContext) } }
@@ -206,45 +223,107 @@ struct ItemsListView: View {
         }
     }
 
+    // MARK: - Header
+
     private var header: some View {
-        HStack {
-            Text("Dumpling")
-                .font(.title2.bold())
-            Spacer()
-            Menu {
-                Button("About", systemImage: "info.circle") { showingAbout = true }
-                Button("Settings", systemImage: "gearshape") { showingSettings = true }
-            } label: {
-                MenuTwoLineIcon()
-                    .frame(width: 44, height: 44)
-                    .contentShape(.rect)
+        HStack(spacing: 4) {
+            if section == .inbox {
+                Text("Dumpling")
+                    .font(.title2.bold())
             }
-            .accessibilityLabel("Menu")
+            Spacer()
+            if !inSection.isEmpty {
+                Button(isSelecting ? "Done" : "Select") {
+                    if isSelecting { endSelecting() } else { editMode = .active }
+                }
+                .fontWeight(isSelecting ? .semibold : .regular)
+                .frame(minHeight: 44)
+                .padding(.horizontal, 8)
+            }
+            if section == .inbox {
+                Menu {
+                    Button("About", systemImage: "info.circle") { showingAbout = true }
+                    Button("Settings", systemImage: "gearshape") { showingSettings = true }
+                } label: {
+                    MenuTwoLineIcon()
+                        .frame(width: 44, height: 44)
+                        .contentShape(.rect)
+                }
+                .accessibilityLabel("Menu")
+            }
         }
         .padding(.leading, 20)
         .padding(.trailing, 8)
+        .frame(minHeight: 44)
     }
 
-    /// Swipe right to file: keep it, or send it to Reminders or Calendar.
+    // MARK: - Selection
+
+    private var selectionBar: some View {
+        HStack {
+            Button {
+                listPickerItems = selectedItems
+                showingListPicker = true
+            } label: {
+                Label("Move to List", systemImage: "list.bullet")
+            }
+            Spacer()
+            Text(selection.isEmpty ? "Select Items" : "\(selection.count) Selected")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                let archiving = section != .archived
+                for item in selectedItems { item.archivedAt = archiving ? .now : nil }
+                try? modelContext.save()
+                endSelecting()
+            } label: {
+                Label(section == .archived ? "Unarchive" : "Archive",
+                      systemImage: section == .archived ? "tray.and.arrow.up" : "archivebox")
+            }
+        }
+        .disabled(selection.isEmpty)
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 16)
+        .background {
+            LinearGradient(stops: [.init(color: Color(.systemGroupedBackground).opacity(0), location: 0),
+                                   .init(color: Color(.systemGroupedBackground), location: 0.4)],
+                           startPoint: .top, endPoint: .bottom)
+                .padding(.top, -16)
+                .ignoresSafeArea(edges: .bottom)
+        }
+    }
+
+    private func endSelecting() {
+        selection.removeAll()
+        editMode = .inactive
+    }
+
+    // MARK: - Swipes
+
+    /// Swipe right: keep it, send it to Reminders or Calendar, or move it to a list. Icons only.
     @ViewBuilder
-    private func fileActions(for item: Item) -> some View {
+    private func leadingActions(for item: Item) -> some View {
         if !item.isFiled {
             Button {
                 item.saveForLater()
                 try? modelContext.save()
             } label: {
-                Label("Save for Later", systemImage: "bookmark")
+                Image(systemName: "bookmark")
             }
             .tint(.indigo)
+            .accessibilityLabel("Save for Later")
             Button {
                 Task {
                     await Processor.fileNow(item, as: .task, filer: pipeline.filer)
                     try? modelContext.save()
                 }
             } label: {
-                Label("Reminders", systemImage: CategoryKind.task.systemImage)
+                Image(systemName: CategoryKind.task.systemImage)
             }
             .tint(CategoryKind.task.tint)
+            .accessibilityLabel("Add to Reminders")
             if item.relevantDate != nil {
                 Button {
                     Task {
@@ -252,22 +331,39 @@ struct ItemsListView: View {
                         try? modelContext.save()
                     }
                 } label: {
-                    Label("Calendar", systemImage: CategoryKind.event.systemImage)
+                    Image(systemName: CategoryKind.event.systemImage)
                 }
                 .tint(CategoryKind.event.tint)
+                .accessibilityLabel("Add to Calendar")
             }
         }
+        Button {
+            listPickerItems = [item]
+            showingListPicker = true
+        } label: {
+            Image(systemName: "list.bullet")
+        }
+        .tint(.teal)
+        .accessibilityLabel("Move to List")
     }
 
     @ViewBuilder
-    private func swipeActions(for item: Item) -> some View {
+    private func trailingActions(for item: Item) -> some View {
         Button(role: .destructive) {
             modelContext.delete(item)
             try? modelContext.save()
         } label: {
             Label(item.isFiled ? "Remove" : "Delete", systemImage: "trash")
         }
-        if item.isInInbox {
+        if item.isArchived {
+            Button {
+                item.archivedAt = nil
+                try? modelContext.save()
+            } label: {
+                Label("Unarchive", systemImage: "tray.and.arrow.up")
+            }
+            .tint(.blue)
+        } else {
             Button {
                 item.archivedAt = .now
                 try? modelContext.save()
@@ -275,17 +371,8 @@ struct ItemsListView: View {
                 Label("Archive", systemImage: "archivebox")
             }
             .tint(.indigo)
-        } else if item.isArchived && !item.isFiled {
-            Button {
-                item.archivedAt = nil
-                try? modelContext.save()
-            } label: {
-                Label("Inbox", systemImage: "tray.and.arrow.up")
-            }
-            .tint(.blue)
         }
     }
-
 }
 
 // MARK: - Row

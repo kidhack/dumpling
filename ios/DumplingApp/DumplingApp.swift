@@ -7,6 +7,6 @@ struct DumplingApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [Item.self, RoutingRule.self])
+        .modelContainer(for: [Item.self, ItemList.self, RoutingRule.self])
     }
 }

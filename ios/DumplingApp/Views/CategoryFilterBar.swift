@@ -14,7 +14,8 @@ struct CategoryFilterBar: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 6)
+            .padding(.top, 6)
+            .padding(.bottom, 14)
         }
         .scrollBounceBehavior(.basedOnSize)
         // Fade cards out beneath the bar so the chips don't sit on top of them.
