@@ -326,14 +326,6 @@ struct ItemRowView: View {
                 Text(item.displayTitle)
                     .lineLimit(1)
 
-                if let note = item.userNote,
-                   note.caseInsensitiveCompare(item.displayTitle) != .orderedSame {
-                    Text(note)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
                 // "Kept" is the normal state for unfiled items, so only show where filed items went and problems.
                 if item.status == "failed" {
                     Label(item.statusLabel, systemImage: "exclamationmark.triangle")
