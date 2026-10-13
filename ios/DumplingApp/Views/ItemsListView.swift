@@ -55,6 +55,7 @@ struct ItemsListView: View {
     private let addThreshold: CGFloat = 100
 
     @State private var filter: CategoryKind?
+    @State private var isScrolledDown = false
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<UUID>()
     @State private var listPickerItems: [Item] = []
@@ -93,6 +94,11 @@ struct ItemsListView: View {
             }
             .environment(\.editMode, $editMode)
             .listSectionSpacing(10)
+            .onScrollGeometryChange(for: Bool.self) { geo in
+                geo.contentOffset.y + geo.contentInsets.top > 2
+            } action: { _, scrolled in
+                withAnimation(.easeOut(duration: 0.2)) { isScrolledDown = scrolled }
+            }
             // Pull down past the newest item to add one (Inbox only). Only real drags count: layout changes
             // (launch, a sheet closing) can briefly read as overscroll.
             .onScrollGeometryChange(for: CGFloat.self) { geo in
@@ -138,13 +144,14 @@ struct ItemsListView: View {
                     }
                 }
                 .padding(.bottom, 4)
-                // Fade cards out as they scroll up beneath the header.
+                // Fade cards out as they scroll up beneath the header. Hidden at rest so the first card isn't dimmed.
                 .background {
                     LinearGradient(stops: [.init(color: Color(.systemGroupedBackground), location: 0.5),
                                            .init(color: Color(.systemGroupedBackground).opacity(0), location: 1)],
                                    startPoint: .top, endPoint: .bottom)
                         .padding(.bottom, -44)
                         .ignoresSafeArea(edges: .top)
+                        .opacity(isScrolledDown ? 1 : 0)
                 }
             }
             .sheet(isPresented: $showingAbout) { AboutView() }
