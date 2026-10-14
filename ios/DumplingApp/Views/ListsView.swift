@@ -18,12 +18,14 @@ struct ListsView: View {
         NavigationStack {
             ScrollViewReader { proxy in
             List {
-                ForEach(lists) { list in
-                    Section {
+                // One group of plain rows with faint dividers, not a card per list.
+                Section {
+                    ForEach(lists) { list in
                         NavigationLink(value: list) {
                             ListRow(list: list)
                         }
                         .id(list.id)
+                        .plainRow()
                         .contextMenu { listActions(for: list) }
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) { delete(list) } label: {
@@ -179,11 +181,12 @@ struct ListDetailView: View {
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 16))
             }
-            ForEach(visible) { item in
-                Section {
+            Section {
+                ForEach(visible) { item in
                     NavigationLink(value: item) {
                         ItemRowView(item: item, section: item.isArchived ? .archived : item.isFiled ? .filed : .inbox)
                     }
+                    .plainRow()
                     // The same swipes as in the sections; not on lists shared view-only.
                     .swipeActions(edge: .trailing) {
                         if canEdit { ItemTrailingSwipeActions(item: item) }

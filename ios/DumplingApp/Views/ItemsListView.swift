@@ -89,13 +89,15 @@ struct ItemsListView: View {
             ScrollViewReader { proxy in
             List(selection: $selection) {
                 // One section per item so each is its own card.
-                ForEach(visible) { item in
-                    Section {
+                // One group of plain rows with faint dividers, not a card per item.
+                Section {
+                    ForEach(visible) { item in
                         NavigationLink(value: item) {
                             ItemRowView(item: item, section: section)
                         }
                         .tag(item.id)
                         .id(item.id)
+                        .plainRow()
                         .swipeActions(edge: .trailing) { ItemTrailingSwipeActions(item: item) }
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {
                             ItemLeadingSwipeActions(item: item, filer: pipeline.filer) {

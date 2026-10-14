@@ -34,6 +34,12 @@ extension View {
 }
 
 extension View {
+    /// A row without a card behind it, divided from the next by a faint line.
+    func plainRow() -> some View {
+        listRowBackground(Color.clear)
+            .listRowSeparatorTint(Color(.separator).opacity(0.5))
+    }
+
     /// The card list style shared by every items screen: spacing between cards, and the soft edge under the
     /// bars everywhere (left to itself, iOS sometimes picked the hard edge, a dark band behind the bottom bar).
     func cardList() -> some View {
