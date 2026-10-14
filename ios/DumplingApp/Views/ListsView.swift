@@ -240,7 +240,7 @@ struct ListDetailView: View {
         .toolbar {
             // Only the large title is custom: a custom small title kept the bar small even at the top.
             ToolbarItem(placement: .largeTitle) {
-                titleButton(large: true)
+                titleButton
             }
             ToolbarItem(placement: .topBarTrailing) { listMenu }
         }
@@ -260,26 +260,23 @@ struct ListDetailView: View {
         return Sharing.isShared(list) ? "Shared · \(count)" : count
     }
 
-    private func titleButton(large: Bool) -> some View {
+    /// The large title, tappable for List Details. The count under it is the system subtitle, which also shows
+    /// with the small title once scrolled.
+    private var titleButton: some View {
         Button {
             showingEdit = true
         } label: {
-            VStack(alignment: large ? .leading : .center, spacing: large ? 2 : 0) {
-                Text(list.name)
-                    .font(large ? .largeTitle.bold() : .headline)
-                    .foregroundStyle(Color(.label))
-                Text(subtitle)
-                    .font(large ? .subheadline : .caption)
-                    .foregroundStyle(.secondary)
-            }
-            .lineLimit(1)
-            .frame(maxWidth: large ? .infinity : nil, alignment: .leading)
-            // The system's large titles sit lower than a custom one does; match them (Inbox's, say).
-            .padding(.top, large ? 10 : 0)
-            .contentShape(.rect)
+            Text(list.name)
+                .font(.largeTitle.bold())
+                .foregroundStyle(Color(.label))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                // A custom large title sits higher than the system's (Inbox's, say); match them.
+                .padding(.top, 24)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(list.name), \(subtitle)")
+        .accessibilityLabel(list.name)
         .accessibilityHint("Opens List Details")
     }
 
