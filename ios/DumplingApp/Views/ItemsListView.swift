@@ -180,10 +180,13 @@ struct ItemsListView: View {
                             PlaceCard(item: pin.item, coordinate: pin.coordinate, userLocation: userLocation)
                                 .padding(.horizontal, 16)
                                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                                // The filter row's fade reaches up behind these; keep them in front of it.
+                                .zIndex(1)
                         }
                         if filter == .location {
                             MapListToggle(showingMap: $showingMap)
                                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                                .zIndex(1)
                         }
                         CategoryFilterBar(selection: $filter, available: availableFilters)
                     }
