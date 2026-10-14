@@ -148,7 +148,7 @@ struct ItemsListView: View {
                         .transition(.opacity)
                 }
             }
-            .screenHeader(alwaysFaded: showingMap) {
+            .screenHeader(overMap: showingMap) {
                 VStack(spacing: 8) {
                     header
                     if section == .inbox, let reason = pipeline.modelUnavailable {
@@ -188,7 +188,7 @@ struct ItemsListView: View {
                                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
                                 .zIndex(1)
                         }
-                        CategoryFilterBar(selection: $filter, available: availableFilters)
+                        CategoryFilterBar(selection: $filter, available: availableFilters, overMap: showingMap)
                     }
                     .animation(.easeOut(duration: 0.2), value: selectedPin)
                     .animation(.snappy(duration: 0.2), value: filter)

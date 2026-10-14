@@ -4,6 +4,8 @@ import SwiftUI
 struct CategoryFilterBar: View {
     @Binding var selection: CategoryKind?
     let available: [CategoryKind]
+    /// Frosts the map beneath the row instead of fading to the background.
+    var overMap = false
 
     /// Shared with the Select mode action bar so switching between them doesn't move anything.
     static let chipHeight: CGFloat = 36
@@ -38,7 +40,7 @@ struct CategoryFilterBar: View {
         .padding(.top, Self.topPadding)
         .padding(.bottom, Self.bottomPadding)
         // Fade cards out beneath the bar so the chips don't sit on top of them.
-        .bottomBarFade()
+        .bottomBarFade(overMap: overMap)
         .animation(.snappy(duration: 0.2), value: selection)
     }
 

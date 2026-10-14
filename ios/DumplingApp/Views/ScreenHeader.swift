@@ -20,8 +20,26 @@ struct ScreenHeader<Leading: View, Trailing: View>: View {
 extension View {
     /// Fades the list out behind a bar pinned above the tab bar: starts well above the bar and is solid
     /// before reaching the bar's content, so cards don't show through its controls.
-    func bottomBarFade() -> some View {
+    /// Over a map it's frosted instead: the map blurs out under the bar rather than fading to the background.
+    func bottomBarFade(overMap: Bool = false) -> some View {
         background {
+            if overMap {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .mask {
+                        LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.45)],
+                                       startPoint: .top, endPoint: .bottom)
+                    }
+                    .padding(.top, -40)
+                    .ignoresSafeArea(edges: .bottom)
+            } else {
+                solidBottomFade
+            }
+        }
+    }
+
+    private var solidBottomFade: some View {
+        Group {
             // In points rather than gradient stops, because the bar's height changes with the safe area below it.
             VStack(spacing: 0) {
                 LinearGradient(colors: [Color(.systemGroupedBackground).opacity(0), Color(.systemGroupedBackground)],
@@ -35,15 +53,15 @@ extension View {
     }
 
     /// Pins `header` above a scrolling list. Cards fade out beneath it once the list is scrolled;
-    /// at rest nothing dims the first card. `alwaysFaded` keeps the fade on, for content like a map.
-    func screenHeader<Header: View>(alwaysFaded: Bool = false, @ViewBuilder _ header: () -> Header) -> some View {
-        modifier(ScreenHeaderModifier(header: header(), alwaysFaded: alwaysFaded))
+    /// at rest nothing dims the first card. Over a map, the map blurs out beneath it instead.
+    func screenHeader<Header: View>(overMap: Bool = false, @ViewBuilder _ header: () -> Header) -> some View {
+        modifier(ScreenHeaderModifier(header: header(), overMap: overMap))
     }
 }
 
 private struct ScreenHeaderModifier<Header: View>: ViewModifier {
     let header: Header
-    let alwaysFaded: Bool
+    let overMap: Bool
     @State private var isScrolled = false
 
     func body(content: Content) -> some View {
@@ -59,13 +77,23 @@ private struct ScreenHeaderModifier<Header: View>: ViewModifier {
                 header
                     .padding(.bottom, 4)
                     .background {
-                        LinearGradient(stops: [.init(color: Color(.systemGroupedBackground), location: 0.5),
-                                               .init(color: Color(.systemGroupedBackground).opacity(0), location: 1)],
-                                       startPoint: .top, endPoint: .bottom)
-                            .padding(.bottom, -44)
-                            .ignoresSafeArea(edges: .top)
-                            .opacity(isScrolled || alwaysFaded ? 1 : 0)
-                            .animation(.easeOut(duration: 0.2), value: isScrolled || alwaysFaded)
+                        ZStack {
+                            LinearGradient(stops: [.init(color: Color(.systemGroupedBackground), location: 0.5),
+                                                   .init(color: Color(.systemGroupedBackground).opacity(0), location: 1)],
+                                           startPoint: .top, endPoint: .bottom)
+                                .opacity(isScrolled && !overMap ? 1 : 0)
+                            Rectangle()
+                                .fill(.ultraThinMaterial)
+                                .mask {
+                                    LinearGradient(stops: [.init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
+                                                   startPoint: .top, endPoint: .bottom)
+                                }
+                                .opacity(overMap ? 1 : 0)
+                        }
+                        .padding(.bottom, -44)
+                        .ignoresSafeArea(edges: .top)
+                        .animation(.easeOut(duration: 0.2), value: isScrolled)
+                        .animation(.easeInOut(duration: 0.25), value: overMap)
                     }
             }
     }
