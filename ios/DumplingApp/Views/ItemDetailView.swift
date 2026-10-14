@@ -214,9 +214,12 @@ struct ItemDetailView: View {
         guard category == .location || category == .event else { return }
         item.latitude = nil
         item.longitude = nil
-        if let place = await Processor.findPlace(for: item, near: nil), let coordinate = place.coordinate {
+        let near = Processor.recentCoordinate(in: Item.all(in: modelContext), excluding: item)
+        if let place = await Processor.findPlace(for: item, near: near), let coordinate = place.coordinate {
             item.latitude = coordinate.latitude
             item.longitude = coordinate.longitude
+            // The user typed a street without a city: fill in the full address that was found.
+            if let full = place.address, !(item.location.map(Places.hasCity) ?? false) { item.location = full }
         }
         try? modelContext.save()
     }

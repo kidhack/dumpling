@@ -126,6 +126,8 @@ struct ItemsMapView: View {
             if item.list.map(Sharing.canEdit) ?? true {
                 item.latitude = coordinate.latitude
                 item.longitude = coordinate.longitude
+                // Fill in the city (and the rest) when the saved address didn't have one.
+                if let full = place.address, !(item.location.map(Places.hasCity) ?? false) { item.location = full }
             }
         }
         notFound = unfound

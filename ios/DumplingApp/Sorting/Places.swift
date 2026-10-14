@@ -66,8 +66,11 @@ enum Places {
     static func lookup(_ place: Place, near: CLLocationCoordinate2D?) async -> Place? {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = [place.name, place.address].compactMap { $0 }.joined(separator: ", ")
-        if place.address == nil, let near {
+        // Without a city ("1206 Frankford Ave", or just a name), look only near the user's other places. As a mere
+        // preference, a far-off weak match could still win (Post Haste in Philadelphia became a street in Indiana).
+        if place.address.map(hasCity) != true, let near {
             request.region = MKCoordinateRegion(center: near, latitudinalMeters: 60_000, longitudinalMeters: 60_000)
+            request.regionPriority = .required
         }
         guard let item = try? await MKLocalSearch(request: request).start().mapItems.first else { return nil }
         let coordinate = item.location.coordinate
@@ -78,6 +81,15 @@ enum Places {
             latitude: coordinate.latitude,
             longitude: coordinate.longitude
         )
+    }
+
+    /// Whether an address names its city. "1206 Frankford avenue" doesn't, so geocoding it alone guesses
+    /// which Frankford Avenue.
+    static func hasCity(_ address: String) -> Bool {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.address.rawValue),
+              let match = detector.firstMatch(in: address, range: NSRange(address.startIndex..., in: address))
+        else { return false }
+        return match.addressComponents?[.city] != nil
     }
 
     @MainActor

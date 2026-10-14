@@ -83,9 +83,19 @@ enum Processor {
         } else if let coordinate = place?.coordinate {
             item.latitude = coordinate.latitude
             item.longitude = coordinate.longitude
-        } else if let address = item.location, let coordinate = await Places.geocode(address) {
-            item.latitude = coordinate.latitude
-            item.longitude = coordinate.longitude
+        } else if let address = item.location {
+            let name = Sorter.placeName(item.displayTitle)
+            if !Places.hasCity(address),
+               let found = await Places.lookup(Place(name: name, address: address == name ? nil : address), near: near),
+               let latitude = found.latitude, let longitude = found.longitude {
+                // No city: find the place by name and street near the user's other places, and keep its full address.
+                item.location = found.address ?? address
+                item.latitude = latitude
+                item.longitude = longitude
+            } else if let coordinate = await Places.geocode(address) {
+                item.latitude = coordinate.latitude
+                item.longitude = coordinate.longitude
+            }
         }
     }
 
@@ -96,6 +106,7 @@ enum Processor {
     static func findPlace(for item: Item, near: CLLocationCoordinate2D?) async -> Place? {
         let name = Sorter.placeName(item.displayTitle)
         var address = item.location.flatMap { $0 == item.displayTitle || $0 == name ? nil : $0 }
+        // A city-less page address is still a street to search with; Places.lookup looks near the user's places.
         if address == nil, let url = item.contentURL.flatMap(URL.init(string:)), let page = await PageReader.fetch(url) {
             if let place = page.place, place.coordinate != nil { return place }
             address = page.address
@@ -113,7 +124,7 @@ enum Processor {
     }
 
     /// Where the user's most recently shared place is, to disambiguate name-only lookups.
-    private static func recentCoordinate(in items: [Item], excluding current: Item) -> CLLocationCoordinate2D? {
+    static func recentCoordinate(in items: [Item], excluding current: Item) -> CLLocationCoordinate2D? {
         items.filter { $0.id != current.id && $0.latitude != nil && $0.longitude != nil }
             .max { $0.timestamp < $1.timestamp }
             .map { CLLocationCoordinate2D(latitude: $0.latitude!, longitude: $0.longitude!) }
