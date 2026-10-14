@@ -48,6 +48,8 @@ struct ItemDetailView: View {
                     Text(error)
                 }
             }
+            // The details sit on the background rather than in a card: it's the only group on the screen.
+            .listRowBackground(Color.clear)
             .id(accessRefresh)
 
             buttons
