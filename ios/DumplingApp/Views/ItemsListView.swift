@@ -207,9 +207,10 @@ struct ItemsListView: View {
     private var header: some View {
         ScreenHeader {
             if section == .inbox {
+                // A title, not a button, so no glass.
                 Text("Dumpling")
                     .font(.title2.bold())
-                    .headerGlass(interactive: false)
+                    .padding(.leading, 4)
             }
         } trailing: {
             if !inSection.isEmpty && !showingMap {

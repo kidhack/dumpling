@@ -54,7 +54,8 @@ private struct ScreenHeaderModifier<Header: View>: ViewModifier {
         // A bar, not an inset, so content scrolling under it gets the system's soft edge effect.
         content
             .safeAreaBar(edge: .top, spacing: 0) {
-                header.padding(.bottom, 4)
+                // Room between the header controls and the first card.
+                header.padding(.bottom, 14)
             }
     }
 }

@@ -66,7 +66,6 @@ struct ItemDetailView: View {
                     Text(item.displayTitle)
                         .font(.headline)
                         .lineLimit(1)
-                        .headerGlass(interactive: false)
                 }
             } trailing: {
                 Button(action: toggleHeart) {
