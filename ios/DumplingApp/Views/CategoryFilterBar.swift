@@ -57,7 +57,9 @@ struct CategoryFilterBar: View {
     }
 
     private func chips(stretchSelected: Bool) -> some View {
-        GlassEffectContainer(spacing: 5) {
+        // Spacing 0: glass within this distance blends together. At the chips' 5pt gap, the selected chip's tint
+        // bled into its neighbors' edges.
+        GlassEffectContainer(spacing: 0) {
             HStack(spacing: 5) {
                 // All is a neutral gray, about as strong as the category colors (black and white stood out too
                 // much); a little darker than Other's gray.
