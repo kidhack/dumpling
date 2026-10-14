@@ -394,25 +394,22 @@ struct ItemRowView: View {
     }
 }
 
-/// On places with Notify Me Nearby on: a gray arrow, or green with the distance when the user is within range.
+/// On places with Notify Me Nearby on, while the user is within range: a green arrow and the distance.
 struct NearbyBadge: View {
     let item: Item
 
     var body: some View {
         let alerts = NearbyAlerts.shared
-        if alerts.isWatching(item) {
-            let close = alerts.isClose(to: item)
+        if alerts.isClose(to: item), let meters = alerts.distance(to: item) {
             HStack(spacing: 3) {
                 Image(systemName: "location.fill")
-                if close, let meters = alerts.distance(to: item) {
-                    Text(NearbyAlerts.format(meters))
-                        .monospacedDigit()
-                }
+                Text(NearbyAlerts.format(meters))
+                    .monospacedDigit()
             }
             .font(.caption.weight(.semibold))
-            .foregroundStyle(close ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
+            .foregroundStyle(.green)
             .accessibilityElement()
-            .accessibilityLabel(close ? "Nearby" : "Notify me nearby is on")
+            .accessibilityLabel("Nearby, \(NearbyAlerts.format(meters))")
         }
     }
 }
