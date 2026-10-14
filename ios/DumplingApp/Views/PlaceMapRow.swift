@@ -12,6 +12,7 @@ struct PlaceMapRow: View {
         Map(initialPosition: .region(MKCoordinateRegion(center: coordinate, latitudinalMeters: 700, longitudinalMeters: 700)),
             interactionModes: []) {
             Marker(name, coordinate: coordinate)
+                .tint(CategoryKind.pinTint)
         }
         .frame(height: 170)
         .clipShape(.rect(cornerRadius: 12))

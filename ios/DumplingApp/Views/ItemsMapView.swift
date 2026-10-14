@@ -43,7 +43,7 @@ struct ItemsMapView: View {
             ForEach(pins) { pin in
                 Marker(pin.item.displayTitle, systemImage: CategoryKind.location.systemImage,
                        coordinate: pin.coordinate)
-                    .tint(CategoryKind.location.tint)
+                    .tint(CategoryKind.pinTint)
                     .tag(pin.id)
             }
             UserAnnotation()

@@ -31,17 +31,22 @@ enum CategoryKind: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Deeper shades in light mode, from Apple's high-contrast system colors, so icons and white text read on
+    /// white (each at least 4.4:1); dark mode keeps the system colors.
     var tint: Color {
         switch self {
-        case .event: return .red
-        case .task: return .orange
-        case .location: return .green
-        case .link: return .blue
-        case .idea: return .yellow
-        case .music: return .pink
-        case .other: return .gray
+        case .event: return Color(light: 0xD70015, dark: 0xFF453A)
+        case .task: return Color(light: 0xC93400, dark: 0xFF9F0A)
+        case .location: return Color(light: 0x248A3D, dark: 0x30D158)
+        case .link: return Color(light: 0x0062CC, dark: 0x0A84FF)
+        case .idea: return Color(light: 0xA16207, dark: 0xFFD60A)
+        case .music: return Color(light: 0xD30F45, dark: 0xFF375F)
+        case .other: return Color(light: 0x6C6C70, dark: 0x98989D)
         }
     }
+
+    /// Map pins: the deep green in both modes, so the pin's white glyph reads on it.
+    static let pinTint = Color(rgb: 0x248A3D)
 
     /// The value saved as an item's quick tag. Older items used these names, so they're kept.
     var quickTag: String {

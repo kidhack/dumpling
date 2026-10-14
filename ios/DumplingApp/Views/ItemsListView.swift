@@ -306,7 +306,7 @@ struct ItemRowView: View {
                 if item.status == "failed" {
                     Label(item.statusLabel, systemImage: "exclamationmark.triangle")
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.warning)
                 } else if section == .archived, let list = item.list {
                     // Unarchiving puts it back in this list.
                     Label(list.name, systemImage: "list.bullet")
@@ -390,7 +390,7 @@ struct NearbyBadge: View {
                     .monospacedDigit()
             }
             .font(.caption.weight(.semibold))
-            .foregroundStyle(.green)
+            .foregroundStyle(CategoryKind.location.tint)
             .accessibilityElement()
             .accessibilityLabel("Nearby, \(NearbyAlerts.format(meters))")
         }

@@ -44,7 +44,8 @@ struct ItemLeadingSwipeActions: View {
         Button(action: moveToList) {
             Image(systemName: "list.bullet")
         }
-        .tint(.teal)
+        // A deeper teal than the system's, which is too pale behind the white icon.
+        .tint(Color(rgb: 0x0A7E8C))
         .accessibilityLabel("Move to List")
     }
 }

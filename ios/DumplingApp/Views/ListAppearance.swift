@@ -49,7 +49,8 @@ struct ListIcon: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: size * 0.48, weight: .semibold))
-            .foregroundStyle(.white)
+            // White, or black on bright colors like yellow and mint where white wouldn't read.
+            .foregroundStyle(.readable(on: color))
             .frame(width: size, height: size)
             .background(color, in: .circle)
             .accessibilityHidden(true)

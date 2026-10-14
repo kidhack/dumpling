@@ -94,7 +94,10 @@ struct CategoryFilterBar: View {
                         .fixedSize()
                 }
             }
-            .foregroundStyle(isSelected ? (kind == nil ? Color(.systemBackground) : .white) : tint)
+            // Selected: All flips to the background color; a category gets white or black, whichever reads on it.
+            .foregroundStyle(isSelected ? (kind == nil ? AnyShapeStyle(Color(.systemBackground))
+                                                       : AnyShapeStyle(.readable(on: tint)))
+                                        : AnyShapeStyle(tint))
             .padding(.horizontal, isSelected ? 12 : 0)
             .frame(minWidth: Self.chipHeight, maxWidth: isSelected && stretch ? .infinity : nil, minHeight: Self.chipHeight)
             // Glass, so the chips stay readable over cards (or the map) scrolling beneath them.

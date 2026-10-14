@@ -26,7 +26,7 @@ private struct CategoryButton: View {
         Button(action: action) {
             Image(systemName: kind.systemImage)
                 .font(.title3)
-                .foregroundStyle(isSelected ? .white : kind.tint)
+                .foregroundStyle(isSelected ? AnyShapeStyle(.readable(on: kind.tint)) : AnyShapeStyle(kind.tint))
                 .frame(width: 40, height: 40)
                 .background(isSelected ? kind.tint : kind.tint.opacity(0.15), in: .circle)
         }
