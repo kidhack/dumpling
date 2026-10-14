@@ -141,14 +141,14 @@ struct ItemDetailView: View {
             guard shared, let name = Sharing.name(for: id, in: item.list) else { return "" }
             return " by \(name)"
         }
-        return VStack(alignment: .leading, spacing: 4) {
+        // No extra spacing: separate lines sit as close as the wrapped lines of the shared text.
+        return VStack(alignment: .leading, spacing: 0) {
             // The original shared text, as a record of what came in. It usually became the title, so only when
             // it says more.
             if let text = item.contentText, Filer.normalized(text) != Filer.normalized(item.title ?? "") {
                 Text("“\(text)”")
                     .lineLimit(6)
                     .textSelection(.enabled)
-                    .padding(.bottom, 4)
             }
             Text("Added\(by(item.createdByID)) · \(item.timestamp.formatted(date: .abbreviated, time: .shortened))")
             if let edited = item.modifiedAt, edited.timeIntervalSince(item.timestamp) > 60 {
