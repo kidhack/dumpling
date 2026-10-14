@@ -8,6 +8,9 @@ final class ItemList: NSManagedObject {
     @NSManaged var id: UUID
     @NSManaged var name: String
     @NSManaged var createdAt: Date
+    /// SF Symbol and color chosen in Edit List; nil means the default list icon.
+    @NSManaged var symbolName: String?
+    @NSManaged var colorName: String?
     @NSManaged private var items: NSSet?
 
     @nonobjc static func fetchRequest() -> NSFetchRequest<ItemList> {

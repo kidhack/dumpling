@@ -27,8 +27,9 @@ struct ListPickerSheet: View {
                             Button {
                                 move(to: list)
                             } label: {
-                                HStack {
-                                    Label(list.name, systemImage: "list.bullet")
+                                HStack(spacing: 12) {
+                                    ListIcon(list: list, size: 26)
+                                    Text(list.name)
                                         .foregroundStyle(.primary)
                                     Spacer()
                                     if items.allSatisfy({ $0.list?.id == list.id }) {

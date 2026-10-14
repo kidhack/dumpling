@@ -95,9 +95,14 @@ struct ItemDetailView: View {
             showingListPicker = true
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "list.bullet")
-                    .foregroundStyle(.teal)
-                    .frame(width: 22)
+                Group {
+                    if let list = item.list {
+                        ListIcon(list: list, size: 22)
+                    } else {
+                        Image(systemName: "list.bullet").foregroundStyle(.teal)
+                    }
+                }
+                .frame(width: 22)
                 Text(item.list?.name ?? "Add to List")
                     .foregroundStyle(item.list == nil ? .secondary : .primary)
                 Spacer()

@@ -9,9 +9,8 @@ struct ListsView: View {
     @Environment(ItemPipeline.self) private var pipeline
     @FetchRequest(sortDescriptors: [SortDescriptor(\ItemList.createdAt)]) private var lists: FetchedResults<ItemList>
 
-    @State private var showingNewList = false
-    @State private var renaming: ItemList?
-    @State private var showingRename = false
+    /// The list being edited; .some(nil) creates a new one.
+    @State private var editing: EditTarget?
 
     var body: some View {
         NavigationStack {
@@ -29,8 +28,8 @@ struct ListsView: View {
                                 Label(Sharing.isOwner(of: list) ? "Delete" : "Leave",
                                       systemImage: Sharing.isOwner(of: list) ? "trash" : "rectangle.portrait.and.arrow.right")
                             }
-                            Button { startRenaming(list) } label: {
-                                Label("Rename", systemImage: "pencil")
+                            Button { editing = EditTarget(list: list) } label: {
+                                Label("Edit", systemImage: "pencil")
                             }
                             .tint(.gray)
                         }
@@ -43,7 +42,7 @@ struct ListsView: View {
                     EmptyView()
                 } trailing: {
                     Button {
-                        showingNewList = true
+                        editing = EditTarget(list: nil)
                     } label: {
                         Image(systemName: "plus")
                             .font(.title3.weight(.semibold))
@@ -60,7 +59,7 @@ struct ListsView: View {
                     } description: {
                         Text("Group items into lists, like everything for an upcoming trip.")
                     } actions: {
-                        Button("New List") { showingNewList = true }
+                        Button("New List") { editing = EditTarget(list: nil) }
                             .buttonStyle(.borderedProminent)
                     }
                 }
@@ -69,14 +68,7 @@ struct ListsView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: ItemList.self) { ListDetailView(list: $0) }
             .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: pipeline.filer) }
-            .listNameAlert("New List", isPresented: $showingNewList) { name in
-                Persistence.shared.assignToPrivateStore(ItemList(context: modelContext, name: name))
-                try? modelContext.save()
-            }
-            .listNameAlert("Rename List", isPresented: $showingRename, initialName: renaming?.name ?? "") { name in
-                renaming?.name = name
-                try? modelContext.save()
-            }
+            .sheet(item: $editing) { target in EditListSheet(list: target.list) }
             .onChange(of: resetToken) { _, _ in
                 guard let first = lists.first?.id else { return }
                 withAnimation(.snappy) { proxy.scrollTo(first, anchor: .top) }
@@ -91,17 +83,13 @@ struct ListsView: View {
             Button(Sharing.isShared(list) ? "Manage Sharing…" : "Share List…", systemImage: "person.2") {
                 Task { await ShareController.shared.present(list) }
             }
-            Button("Rename", systemImage: "pencil") { startRenaming(list) }
+            Button("Edit List…", systemImage: "pencil") { editing = EditTarget(list: list) }
             Button("Delete", systemImage: "trash", role: .destructive) { delete(list) }
         } else {
             Button("Leave List", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { delete(list) }
         }
     }
 
-    private func startRenaming(_ list: ItemList) {
-        renaming = list
-        showingRename = true
-    }
 
     private func delete(_ list: ItemList) {
         // Shared lists: the owner's items come back unlisted; someone invited leaves instead.
@@ -114,9 +102,7 @@ private struct ListRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "list.bullet")
-                .font(.title3)
-                .foregroundStyle(.teal)
+            ListIcon(list: list, size: 28)
                 .frame(width: 28, height: 22)
             Text(list.name)
                 .lineLimit(1)
@@ -140,7 +126,7 @@ struct ListDetailView: View {
     @ObservedObject var list: ItemList
     @Environment(\.managedObjectContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @State private var showingRename = false
+    @State private var showingEdit = false
 
     private var items: [Item] { list.itemsArray.sorted { $0.timestamp > $1.timestamp } }
 
@@ -174,6 +160,7 @@ struct ListDetailView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "chevron.left")
                             .font(.title3.weight(.semibold))
+                        ListIcon(list: list, size: 30)
                         Text(list.name)
                             .font(.title2.bold())
                             .foregroundStyle(.primary)
@@ -192,14 +179,14 @@ struct ListDetailView: View {
                                systemImage: Sharing.isShared(list) ? "person.2" : "person.crop.circle.badge.plus") {
                             Task { await ShareController.shared.present(list) }
                         }
-                        Button("Rename", systemImage: "pencil") { showingRename = true }
+                        Button("Edit List…", systemImage: "pencil") { showingEdit = true }
                         Button("Delete List", systemImage: "trash", role: .destructive) {
                             dismiss()
                             Task { await Sharing.delete(list, in: modelContext) }
                         }
                     } else {
                         if Sharing.canEdit(list) {
-                            Button("Rename", systemImage: "pencil") { showingRename = true }
+                            Button("Edit List…", systemImage: "pencil") { showingEdit = true }
                         }
                         Button("Leave List", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                             dismiss()
@@ -223,9 +210,12 @@ struct ListDetailView: View {
         }
         .navigationTitle(list.name)
         .toolbar(.hidden, for: .navigationBar)
-        .listNameAlert("Rename List", isPresented: $showingRename, initialName: list.name) { name in
-            list.name = name
-            try? modelContext.save()
-        }
+        .sheet(isPresented: $showingEdit) { EditListSheet(list: list) }
     }
+}
+
+/// Which list the Edit List sheet is for; `list == nil` creates one.
+struct EditTarget: Identifiable {
+    let list: ItemList?
+    var id: String { list?.objectID.uriRepresentation().absoluteString ?? "new" }
 }
