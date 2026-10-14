@@ -14,6 +14,10 @@ struct ItemDetailView: View {
     /// What the user just tapped, shown until the saved hearts catch up (iCloud can take a moment).
     @State private var pendingHeart: Bool?
     @State private var isSavingHeart = false
+    /// The title field has scrolled under the header, so the header shows the title instead.
+    @State private var titleScrolledAway = false
+    /// Shared as a link: keeps the link row while its text is being edited, even if briefly empty.
+    @State private var hasLink = false
     @Environment(\.dismiss) private var dismiss
 
     private var category: ItemCategory {
@@ -49,6 +53,11 @@ struct ItemDetailView: View {
             buttons
         }
         .scrollEdgeEffectStyle(.soft, for: .all)
+        .onScrollGeometryChange(for: Bool.self) { geo in
+            geo.contentOffset.y + geo.contentInsets.top > 40
+        } action: { _, away in
+            titleScrolledAway = away
+        }
         // The same custom header as the lists: swapping the system bar in and out changed the top inset,
         // which made the list jump when coming back from an item.
         .screenHeader {
@@ -63,9 +72,13 @@ struct ItemDetailView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Back")
+                    // The title field already shows it at the top, so the header only does once that scrolls away
+                    // (filed items have no title field).
                     Text(item.displayTitle)
                         .font(.headline)
                         .lineLimit(1)
+                        .opacity(item.isFiled || titleScrolledAway ? 1 : 0)
+                        .animation(.easeOut(duration: 0.15), value: titleScrolledAway)
                 }
             } trailing: {
                 Button(action: toggleHeart) {
@@ -84,6 +97,7 @@ struct ItemDetailView: View {
         }
         .navigationTitle(item.displayTitle)
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear { hasLink = item.contentURL != nil }
         .onDisappear { try? modelContext.save() }
         .task { await locateIfNeeded() }
         // Pull down to sort the item again from scratch (filed items just reload their event or reminder).
@@ -99,10 +113,11 @@ struct ItemDetailView: View {
                 if let list = item.list {
                     ListLabel(list: list)
                 } else {
-                    Image(systemName: "list.bullet").foregroundStyle(.teal)
+                    // Not in a list: where it is instead. Tapping moves it to a list.
+                    Image(systemName: homeSection.systemImage).foregroundStyle(.secondary)
                         .frame(width: 22)
-                    Text("Add to List")
-                        .foregroundStyle(.secondary)
+                    Text(homeSection.rawValue)
+                        .foregroundStyle(Color(.label))
                 }
                 Spacer()
                 Image(systemName: "chevron.up.chevron.down")
@@ -112,9 +127,12 @@ struct ItemDetailView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(item.list.map { "List: \($0.name)" } ?? "Add to List")
+        .accessibilityLabel(item.list.map { "List: \($0.name)" } ?? "In \(homeSection.rawValue)")
+        .accessibilityHint("Moves it to a list")
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
     }
+
+    private var homeSection: ItemsSection { item.isArchived ? .archived : item.isFiled ? .filed : .inbox }
 
     /// When the item was added and last edited, and by whom on a shared list.
     private var attribution: some View {
@@ -202,19 +220,45 @@ struct ItemDetailView: View {
 
     @ViewBuilder
     private var sharedRows: some View {
-        if let urlString = item.contentURL {
-            if let url = URL(string: urlString) {
-                Link(urlString, destination: url).lineLimit(2)
-            } else {
-                Text(urlString)
+        if hasLink {
+            iconRow("link") {
+                TextField("Link", text: optional(\.contentURL))
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .lineLimit(1)
+                if let url = item.contentURL.flatMap(URL.init(string:)) {
+                    Link(destination: url) {
+                        Image(systemName: "arrow.up.right")
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Open Link")
+                }
             }
         }
-        if let text = item.contentText {
-            Text(text).textSelection(.enabled)
+        // Shared text usually became the title; only show it when it says more.
+        if let text = item.contentText, Filer.normalized(text) != Filer.normalized(item.title ?? "") {
+            iconRow("text.alignleft") {
+                Text(text).textSelection(.enabled)
+            }
         }
-        TextField("Note", text: optional(\.userNote), axis: .vertical)
-            .lineLimit(1...5)
-            .disabled(item.isFiled)
+        iconRow("note.text") {
+            TextField("Note", text: optional(\.userNote), axis: .vertical)
+                .lineLimit(1...5)
+                .disabled(item.isFiled)
+        }
+    }
+
+    /// A row with a leading icon, lined up with the category and list rows.
+    private func iconRow<Content: View>(_ systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+            content()
+        }
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
     }
 
     @ViewBuilder
@@ -232,7 +276,7 @@ struct ItemDetailView: View {
                     .foregroundStyle(category.tint)
                     .frame(width: 22)
                 Text(category.label)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color(.label))
                 Spacer()
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.footnote)
@@ -240,6 +284,8 @@ struct ItemDetailView: View {
             }
             .contentShape(.rect)
         }
+        // Menus tint their label with the accent color; keep the text plain like the other rows.
+        .tint(Color(.label))
         .accessibilityLabel("Category: \(category.label)")
         // Otherwise the divider starts at the text, leaving a gap under the icon.
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }

@@ -17,10 +17,22 @@ enum Sharing {
 
     // MARK: - State
 
+    /// Recent answers to "is this list shared, and how". Views ask on every redraw, and fetching shares waits on
+    /// the store, which stalls the app while iCloud is busy (it froze for seconds after a heart on a shared list).
+    private static var shareCache: [NSManagedObjectID: (share: CKShare?, fetched: Date)] = [:]
+
     /// The CloudKit share for a list, if it's shared (by the user or with them).
     static func share(for list: ItemList) -> CKShare? {
-        (try? container.fetchShares(matching: [list.objectID]))?[list.objectID]
+        if let cached = shareCache[list.objectID], Date.now.timeIntervalSince(cached.fetched) < 60 {
+            return cached.share
+        }
+        let share = (try? container.fetchShares(matching: [list.objectID]))?[list.objectID]
+        shareCache[list.objectID] = (share, .now)
+        return share
     }
+
+    /// After sharing changes (a list shared, stopped, left, accepted, or its people edited).
+    static func forgetShares() { shareCache.removeAll() }
 
     static func isShared(_ list: ItemList) -> Bool {
         isInSharedStore(list) || share(for: list) != nil
@@ -77,6 +89,7 @@ enum Sharing {
     static func shareList(_ list: ItemList) async throws -> CKShare {
         if let existing = share(for: list) { return existing }
         let (_, share, _) = try await container.share([list] + list.itemsArray, to: nil)
+        forgetShares()
         share[CKShare.SystemFieldKey.title] = list.name
         share.publicPermission = .none
         return share
@@ -85,6 +98,7 @@ enum Sharing {
     /// Saves changes the sharing sheet made (participants, permissions, title).
     static func persistUpdatedShare(_ share: CKShare, for list: ItemList) {
         guard let store = list.objectID.persistentStore else { return }
+        forgetShares()
         // CloudKit calls back on a background queue; @Sendable keeps the closure off the main actor.
         container.persistUpdatedShare(share, in: store) { @Sendable _, error in
             if let error { logger.error("Saving share failed: \(error.localizedDescription, privacy: .public)") }
@@ -101,6 +115,7 @@ enum Sharing {
                 logger.error("Accepting share failed: \(error.localizedDescription, privacy: .public)")
             } else {
                 logger.info("Accepted shared list \(zoneName, privacy: .public)")
+                Task { @MainActor in forgetShares() }
             }
         }
     }
@@ -158,6 +173,7 @@ enum Sharing {
         for item in list.itemsArray { await move(item, to: nil, in: context) }
         context.delete(list)
         try? context.save()
+        forgetShares()
         do {
             try await container.purgeObjectsAndRecordsInZone(with: share.recordID.zoneID,
                                                               in: persistence.privateStore)
@@ -181,6 +197,7 @@ enum Sharing {
             itemCopy.list = copy
         }
         try? context.save()
+        forgetShares()
         do {
             try await container.purgeObjectsAndRecordsInZone(with: share.recordID.zoneID, in: privateStore)
         } catch {
@@ -191,6 +208,7 @@ enum Sharing {
     /// Participant leaving a list someone shared with them: removes the local copy, not the owner's.
     static func leave(_ list: ItemList) async {
         guard let share = share(for: list) else { return }
+        forgetShares()
         do {
             try await container.purgeObjectsAndRecordsInZone(with: share.recordID.zoneID, in: persistence.sharedStore)
         } catch {
