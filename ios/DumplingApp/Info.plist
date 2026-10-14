@@ -22,6 +22,8 @@
 	<string>3</string>
 	<key>CKSharingSupported</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Dumpling adds the events you share to your calendar, checks for ones you've already added so it doesn't duplicate them, and links to them.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>

@@ -40,6 +40,8 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         NSRemindersFullAccessUsageDescription: Dumpling adds the tasks you share to a "Dumpling" list in Reminders.
+        # Only Apple's standard encryption (HTTPS, iCloud), so no export compliance documents are needed.
+        ITSAppUsesNonExemptEncryption: false
         # Lets tapping a shared-list invitation open Dumpling to accept it.
         CKSharingSupported: true
         # Lets CloudKit push changes from other devices so iCloud sync happens in the background.

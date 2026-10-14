@@ -46,6 +46,22 @@ final class Persistence: @unchecked Sendable {
             }
         }
 
+        #if DEBUG
+        // Before deploying the CloudKit schema to production (needed for TestFlight), launch once with
+        // DUMPLING_INIT_CLOUDKIT_SCHEMA=1 so every record type and field exists in the development schema,
+        // including fields no device has synced yet.
+        if ProcessInfo.processInfo.environment["DUMPLING_INIT_CLOUDKIT_SCHEMA"] == "1" {
+            do {
+                try container.initializeCloudKitSchema(options: [])
+                logger.info("CloudKit development schema initialized")
+                print("DUMPLING: CloudKit development schema initialized")
+            } catch {
+                logger.error("Schema init failed: \(error.localizedDescription, privacy: .public)")
+                print("DUMPLING: schema init failed: \(error)")
+            }
+        }
+        #endif
+
         container.viewContext.automaticallyMergesChangesFromParent = true
         container.viewContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
     }
