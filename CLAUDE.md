@@ -8,7 +8,7 @@ Personal iOS content routing agent. Share anything from the iOS share sheet (lin
 
 - **Sections**: the built-in Inbox, Filed and Archived tabs (`ItemsSection`). Where an item lands depends on its status.
 - **Lists**: the ones the user makes in the Lists tab (`ItemList`), which can be shared over iCloud. Items in a list leave the Inbox.
-- **Categories**: what sorting decides an item is (event, task, location, link, idea, music, other; `CategoryKind`). The filter row filters by category.
+- **Categories**: what sorting decides an item is (event, task, location, shopping, media, link, idea; `CategoryKind`). The filter row filters by category. Media items also have a **kind** (music, book, podcast, audiobook, article, blog, video; `MediaKind`, stored in `Item.mediaKind`) that picks their icon and which Apple app opens them. Items saved before model v5 may say `music` or `other`; `ItemCategory(stored:)` reads those as media and idea.
 
 ## Repository layout
 

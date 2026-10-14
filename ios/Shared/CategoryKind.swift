@@ -3,7 +3,7 @@ import SwiftUI
 /// Categories as the user sees them: label, icon and color. Shared by the share sheet's
 /// quick-tag buttons and the app's item list.
 enum CategoryKind: String, CaseIterable, Identifiable, Sendable {
-    case event, task, location, link, idea, music, other
+    case event, task, location, shopping, media, link, idea
 
     var id: Self { self }
 
@@ -12,22 +12,23 @@ enum CategoryKind: String, CaseIterable, Identifiable, Sendable {
         case .event: return "Event"
         case .task: return "Task"
         case .location: return "Location"
+        case .shopping: return "Shopping"
+        case .media: return "Media"
         case .link: return "Link"
         case .idea: return "Idea"
-        case .music: return "Music"
-        case .other: return "Other"
         }
     }
 
+    /// The category's own icon. Media items show their kind's icon instead (see `MediaKind`).
     var systemImage: String {
         switch self {
         case .event: return "calendar"
         case .task: return "checklist"
         case .location: return "mappin.and.ellipse"
+        case .shopping: return "bag"
+        case .media: return "play.circle"
         case .link: return "link"
         case .idea: return "lightbulb"
-        case .music: return "music.note"
-        case .other: return "square.dashed"
         }
     }
 
@@ -38,10 +39,10 @@ enum CategoryKind: String, CaseIterable, Identifiable, Sendable {
         case .event: return Color(light: 0xD70015, dark: 0xFF453A)
         case .task: return Color(light: 0xC93400, dark: 0xFF9F0A)
         case .location: return Color(light: 0x248A3D, dark: 0x30D158)
+        case .shopping: return Color(light: 0x8944AB, dark: 0xBF5AF2)
+        case .media: return Color(light: 0xD30F45, dark: 0xFF375F)
         case .link: return Color(light: 0x0062CC, dark: 0x0A84FF)
         case .idea: return Color(light: 0xA16207, dark: 0xFFD60A)
-        case .music: return Color(light: 0xD30F45, dark: 0xFF375F)
-        case .other: return Color(light: 0x6C6C70, dark: 0x98989D)
         }
     }
 
@@ -54,12 +55,59 @@ enum CategoryKind: String, CaseIterable, Identifiable, Sendable {
         case .task: return "reminder"
         case .link: return "link_save"
         case .idea: return "software_idea"
-        case .event, .location, .music, .other: return rawValue
+        case .event, .location, .shopping, .media: return rawValue
         }
     }
 
     init?(quickTag: String?) {
-        guard let match = Self.allCases.first(where: { $0.quickTag == quickTag }) else { return nil }
-        self = match
+        // Tags from before Music became Media and Other became Idea.
+        switch quickTag {
+        case "music": self = .media
+        case "other": self = .idea
+        default:
+            guard let match = Self.allCases.first(where: { $0.quickTag == quickTag }) else { return nil }
+            self = match
+        }
+    }
+}
+
+/// What kind of media a Media item is, for its icon and for opening it in Apple's apps.
+enum MediaKind: String, CaseIterable, Identifiable, Sendable {
+    case music, book, podcast, audiobook, article, blog, video
+
+    var id: Self { self }
+
+    var label: String {
+        switch self {
+        case .music: return "Music"
+        case .book: return "Book"
+        case .podcast: return "Podcast"
+        case .audiobook: return "Audiobook"
+        case .article: return "News Article"
+        case .blog: return "Blog"
+        case .video: return "Video"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .music: return "music.note"
+        case .book: return "book.closed"
+        case .podcast: return "mic"
+        case .audiobook: return "headphones"
+        case .article: return "newspaper"
+        case .blog: return "doc.richtext"
+        case .video: return "play.rectangle"
+        }
+    }
+
+    /// The Apple app this kind opens in, if any.
+    var appleApp: String? {
+        switch self {
+        case .music: return "Apple Music"
+        case .book, .audiobook: return "Apple Books"
+        case .podcast: return "Apple Podcasts"
+        case .article, .blog, .video: return nil
+        }
     }
 }

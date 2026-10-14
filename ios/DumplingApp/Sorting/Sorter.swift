@@ -3,13 +3,33 @@ import FoundationModels
 
 @Generable
 enum ItemCategory: String, CaseIterable {
-    case event, task, location, link, idea, music, other
+    case event, task, location, shopping, media, link, idea
+
+    /// Also reads categories saved before Music became Media and Other became Idea.
+    init?(stored: String?) {
+        switch stored {
+        case "music": self = .media
+        case "other": self = .idea
+        default:
+            guard let stored, let category = ItemCategory(rawValue: stored) else { return nil }
+            self = category
+        }
+    }
+}
+
+/// What kind of media, for the model to choose. Mirrors `MediaKind`, which the share extension also uses.
+@Generable
+enum MediaType: String, CaseIterable {
+    case music, book, podcast, audiobook, article, blog, video
 }
 
 @Generable
 struct SortDecision {
-    @Guide(description: "event: a specific happening on a date (concert, dinner, appointment). task: something the user should do (buy, call, book, reply). location: a place to remember or visit with no specific date (restaurant, shop, bar, park, address). link: an article, video or page to read or watch later. idea: an idea or note to self. music: a song, album or artist. other: anything else.")
+    @Guide(description: "event: a specific happening on a date (concert, dinner, appointment). task: something the user should do (call, book, reply, pay). location: a place to remember or visit with no specific date (restaurant, bar, park, address). shopping: a product to buy or research (a product page, gear, a gift idea, a store listing). media: something to read, watch or listen to (a song, album, book, podcast, audiobook, news article, blog post or video). link: a website, app or tool to check out. idea: an idea, a note to self, or anything else.")
     var category: ItemCategory
+
+    @Guide(description: "What kind of media it is, or would be: music (song, album, artist), book, podcast, audiobook, article (news story), blog (blog post or personal essay) or video. Ignored unless the category is media.")
+    var mediaType: MediaType
 
     @Guide(description: "A specific 2-6 word title. No URL. Don't start with 'Reminder to' or 'Remember to'.")
     var title: String
@@ -27,7 +47,9 @@ enum Sorter {
         quick tag, and decide what kind of item it is. The user's note states their intent and \
         outranks your reading of the content. Resolve relative dates ("Saturday", "next week") \
         against the current time you're given. When a page title and description are given, they come from the shared link itself. \
-        A bare URL with no note asking for an action is a link, not a task. Restaurants, cafes, \
+        A bare URL with no note asking for an action is not a task. Articles, news stories, blog posts, \
+        essays, videos, songs, books and podcasts are media; a link is a website, app or tool to check out. \
+        Product pages and things to buy are shopping. Restaurants, cafes, \
         bars, shops, parks and addresses are locations, even when the note says "try", "visit" or \
         "go"; a task is an errand like call, buy, book or pay. Only use date words that appear in \
         the shared item itself, never the current time.
@@ -74,6 +96,7 @@ enum Sorter {
     /// What to file, after combining the model's decision with the page's own structured data.
     struct Plan: Equatable {
         var category: ItemCategory
+        var mediaKind: MediaKind?
         var title: String
         var start: Date?
         var end: Date?
@@ -83,9 +106,35 @@ enum Sorter {
 
     static func plan(_ decision: SortDecision, item: Item, page: PageInfo?) -> Plan {
         let resolved = resolveDate(grounded(decision.datePhrase, in: sharedText(of: item, page: page)))
-        var plan = Plan(category: decision.category, title: cleanTitle(decision.title, for: item),
+        var plan = Plan(category: decision.category,
+                        mediaKind: MediaKind(rawValue: decision.mediaType.rawValue),
+                        title: cleanTitle(decision.title, for: item),
                         start: resolved?.date, end: nil, allDay: resolved?.allDay ?? true,
                         location: decision.location)
+        // Links to well-known media services say exactly what they are.
+        if let kind = mediaKind(forLink: item.contentURL), (category(forTag: item.quickTag) ?? .media) == .media {
+            plan.category = .media
+            plan.mediaKind = kind
+            plan.location = nil
+            return plan
+        }
+        // What a page declares itself (schema.org or og:type) beats the model's reading of it: an article, a
+        // blog post, a video, a product... unless the user tagged the item otherwise.
+        if item.quickTag == nil, page?.place == nil, page?.event == nil, page?.looksLikeVenue != true {
+            if let kind = page?.declaredMedia {
+                plan.category = .media
+                plan.mediaKind = kind
+                plan.location = nil
+                plan.start = nil
+                return plan
+            }
+            if page?.declaresProduct == true {
+                plan.category = .shopping
+                plan.location = nil
+                plan.start = nil
+                return plan
+            }
+        }
         // A maps link names its place exactly; it beats the model unless the user tagged the item otherwise.
         if let place = page?.place, (category(forTag: item.quickTag) ?? .location) == .location {
             plan.category = .location
@@ -120,6 +169,11 @@ enum Sorter {
                 }
             }
         }
+        // Dates are for events and tasks. An article's publish date (often in its URL) isn't when to do anything.
+        if plan.category != .event && plan.category != .task {
+            plan.start = nil
+            plan.end = nil
+        }
         // A real address beats the model's guess, which is often just the place's name.
         if plan.category == .location {
             let found = detectedAddress(in: [item.contentText, item.userNote].compactMap { $0 }.joined(separator: "\n")) ?? page?.address
@@ -141,6 +195,35 @@ enum Sorter {
         return title
     }
 
+    /// The kind of media a link to a well-known service is: Apple Music, Spotify, Apple Podcasts, Apple Books,
+    /// Audible, Goodreads, YouTube and so on. Nil for anything else.
+    static func mediaKind(forLink urlString: String?) -> MediaKind? {
+        guard let url = urlString.flatMap(URL.init(string:)), var host = url.host()?.lowercased() else { return nil }
+        if host.hasPrefix("www.") { host.removeFirst(4) }
+        if host.hasPrefix("m.") { host.removeFirst(2) }
+        let path = url.path().lowercased()
+        switch host {
+        case "music.apple.com", "tidal.com", "listen.tidal.com", "soundcloud.com", "music.youtube.com", "deezer.com":
+            return .music
+        case "podcasts.apple.com", "overcast.fm", "pca.st", "pocketcasts.com", "castro.fm":
+            return .podcast
+        case "books.apple.com":
+            return path.contains("/audiobook/") ? .audiobook : .book
+        case "audible.com", "audible.co.uk":
+            return .audiobook
+        case "goodreads.com", "bookshop.org":
+            return path.contains("/book") ? .book : nil
+        case "youtube.com", "youtu.be", "vimeo.com", "tiktok.com":
+            return .video
+        case "open.spotify.com":
+            if path.hasPrefix("/episode") || path.hasPrefix("/show") { return .podcast }
+            if path.hasPrefix("/audiobook") { return .audiobook }
+            return .music
+        default:
+            return host.hasSuffix(".bandcamp.com") || host == "bandcamp.com" ? .music : nil
+        }
+    }
+
     static func isMapsLink(_ urlString: String?) -> Bool {
         guard let url = urlString.flatMap(URL.init(string:)), let host = url.host()?.lowercased() else { return false }
         return host == "maps.apple.com" || host == "maps.app.goo.gl" || host == "goo.gl" && url.path().hasPrefix("/maps")
@@ -157,7 +240,7 @@ enum Sorter {
         return String(text[range])
     }
 
-    private static let genericTitles: Set<String> = ["", "reminder", "task", "event", "link", "idea", "music", "other", "note", "website"]
+    private static let genericTitles: Set<String> = ["", "reminder", "task", "event", "link", "idea", "music", "media", "shopping", "other", "note", "website"]
 
     /// The small model sometimes titles an item with its category; use the site or text instead.
     static func cleanTitle(_ title: String, for item: Item) -> String {

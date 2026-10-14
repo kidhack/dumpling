@@ -6,3 +6,11 @@ final class Item {
     }
     var tagLabel: String? { quickTag }
 }
+
+import SwiftUI
+
+// The app's light/dark colors use UIKit; the Mac harness only sorts, so any color will do.
+extension Color {
+    init(light: UInt32, dark: UInt32) { self = .gray }
+    init(rgb: UInt32) { self = .gray }
+}

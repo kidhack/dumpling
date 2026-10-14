@@ -23,6 +23,7 @@ final class ItemPipeline {
 
         importQueue(into: context)
         let items = Item.all(in: context)
+        renameCategoriesOnce(items)
         resortMapLinksOnce(items)
         modelUnavailable = await Processor.processPending(items, filer: filer)
         try? context.save()
@@ -83,6 +84,25 @@ final class ItemPipeline {
         let latitude = places.map(\.coordinate.latitude).reduce(0, +) / Double(places.count)
         let longitude = places.map(\.coordinate.longitude).reduce(0, +) / Double(places.count)
         return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    /// Music became Media (with a kind) and Other became Idea. Lists shared view-only are left alone; they read
+    /// the old names through `ItemCategory(stored:)` anyway.
+    private func renameCategoriesOnce(_ items: [Item]) {
+        let key = "renamedCategories.v1"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        for item in items where item.list.map(Sharing.canEdit) ?? true {
+            switch item.category {
+            case "music":
+                item.category = ItemCategory.media.rawValue
+                item.mediaKind = MediaKind.music.rawValue
+            case "other":
+                item.category = ItemCategory.idea.rawValue
+            default:
+                break
+            }
+        }
+        UserDefaults.standard.set(true, forKey: key)
     }
 
     /// Map share links sorted before they could be read came out as "Google Search"; sort those again once.

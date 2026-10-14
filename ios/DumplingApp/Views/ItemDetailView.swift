@@ -14,6 +14,8 @@ struct ItemDetailView: View {
     /// What the user just tapped, shown until the saved hearts catch up (iCloud can take a moment).
     @State private var pendingHeart: Bool?
     @State private var isSavingHeart = false
+    @State private var isFindingInApple = false
+    @State private var notFoundInApple = false
     /// The title field has scrolled under the header, so the header shows the title instead.
     @State private var titleScrolledAway = false
     /// Shared as a link: keeps the link row while its text is being edited, even if briefly empty.
@@ -21,7 +23,7 @@ struct ItemDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     private var category: ItemCategory {
-        item.category.flatMap(ItemCategory.init(rawValue:)) ?? .other
+        item.itemCategory ?? .idea
     }
 
     var body: some View {
@@ -303,6 +305,31 @@ struct ItemDetailView: View {
         .accessibilityLabel("Category: \(category.label)")
         // Otherwise the divider starts at the text, leaving a gap under the icon.
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+        if category == .media {
+            Menu {
+                Picker("Kind", selection: mediaKindBinding) {
+                    ForEach(MediaKind.allCases) {
+                        Label($0.label, systemImage: $0.systemImage).tag($0)
+                    }
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: mediaKind.systemImage)
+                        .foregroundStyle(category.tint)
+                        .frame(width: 22)
+                    Text(mediaKind.label)
+                        .foregroundStyle(Color(.label))
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(.rect)
+            }
+            .tint(Color(.label))
+            .accessibilityLabel("Kind: \(mediaKind.label)")
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+        }
         if category == .event || category == .task {
             iconRow("calendar") {
                 Toggle(category == .event ? "Date" : "Due Date", isOn: hasDate)
@@ -396,6 +423,24 @@ struct ItemDetailView: View {
                     }
                     .buttonStyle(OutlinedButtonStyle())
                 }
+                if let kind = item.media, let app = kind.appleApp {
+                    Button {
+                        Task { await openInAppleApp(kind) }
+                    } label: {
+                        HStack {
+                            Label("Open in \(app)", systemImage: kind.systemImage)
+                            if isFindingInApple { ProgressView() }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(OutlinedButtonStyle(prominent: true))
+                    .disabled(isFindingInApple)
+                    .alert("Not Found in \(app)", isPresented: $notFoundInApple) {
+                        Button("OK", role: .cancel) {}
+                    } message: {
+                        Text("Couldn't find \u{201C}\(item.displayTitle)\u{201D}. Try editing the title.")
+                    }
+                }
                 shareButton
                 if item.isArchived {
                     Button {
@@ -470,7 +515,31 @@ struct ItemDetailView: View {
     }
 
     private var categoryBinding: Binding<ItemCategory> {
-        Binding(get: { category }, set: { item.category = $0.rawValue })
+        Binding(get: { category }, set: { picked in
+            item.category = picked.rawValue
+            // Media needs a kind: from the link when it's a known service, otherwise an article to start.
+            item.mediaKind = picked == .media
+                ? (item.mediaKind ?? Sorter.mediaKind(forLink: item.contentURL)?.rawValue ?? MediaKind.article.rawValue)
+                : nil
+        })
+    }
+
+    private var mediaKind: MediaKind { item.media ?? .article }
+
+    private var mediaKindBinding: Binding<MediaKind> {
+        Binding(get: { mediaKind }, set: { item.mediaKind = $0.rawValue })
+    }
+
+    /// Opens a song, book, podcast or audiobook in Apple's app, finding it in Apple's catalog when the link
+    /// is from somewhere else.
+    private func openInAppleApp(_ kind: MediaKind) async {
+        isFindingInApple = true
+        defer { isFindingInApple = false }
+        if let url = await AppleMediaLink.find(title: item.displayTitle, kind: kind, link: item.contentURL) {
+            await UIApplication.shared.open(url)
+        } else {
+            notFoundInApple = true
+        }
     }
 
     private var hasDate: Binding<Bool> {

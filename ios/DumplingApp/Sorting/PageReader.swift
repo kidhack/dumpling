@@ -24,6 +24,29 @@ struct PageInfo: Sendable, Equatable {
     var isVenue = false
     /// The page's visible text talks like a restaurant or bar (two or more of `venueTextWords`).
     var textReadsLikeVenue = false
+    /// What the page says it is, from schema.org types and og:type (lowercased), e.g. "newsarticle", "product".
+    var declaredTypes: Set<String> = []
+
+    /// A media kind the page declares itself as.
+    var declaredMedia: MediaKind? {
+        let t = declaredTypes
+        if !t.isDisjoint(with: ["musicrecording", "musicalbum", "musicgroup", "music.song", "music.album",
+                                 "music.playlist", "music.musician"]) { return .music }
+        if !t.isDisjoint(with: ["podcastepisode", "podcastseries"]) { return .podcast }
+        if t.contains("audiobook") { return .audiobook }
+        if !t.isDisjoint(with: ["book", "books.book"]) { return .book }
+        if !t.isDisjoint(with: ["videoobject", "video.other", "video.movie", "video.episode", "video.tv_show"]) {
+            return .video
+        }
+        if !t.isDisjoint(with: ["blogposting", "blog"]) { return .blog }
+        if !t.isDisjoint(with: ["newsarticle", "article", "reportagenewsarticle", "analysisnewsarticle"]) {
+            return .article
+        }
+        return nil
+    }
+
+    /// The page declares itself a product for sale.
+    var declaresProduct: Bool { !declaredTypes.isDisjoint(with: ["product", "productgroup", "og:product", "product.item"]) }
 
     /// A venue's own website: structured data says so, or it prints a street address and its title or
     /// description reads like one. Restaurant sites otherwise often came out as ideas or links.
@@ -76,7 +99,8 @@ enum PageReader {
             address: jsonLDAddress(in: html) ?? textAddress(in: html),
             hours: jsonLDHours(in: html),
             isVenue: jsonLDIsVenue(in: html),
-            textReadsLikeVenue: readsLikeVenue(visibleText(in: html))
+            textReadsLikeVenue: readsLikeVenue(visibleText(in: html)),
+            declaredTypes: declaredTypes(in: html)
         )
     }
 
@@ -141,6 +165,21 @@ enum PageReader {
         "artgallery", "touristattraction", "lodgingbusiness", "hotel", "park", "zoo", "aquarium",
         "movietheater", "musicvenue", "performingartstheater", "entertainmentbusiness",
     ]
+
+    /// schema.org @types (from JSON-LD) and og:type, lowercased.
+    private static func declaredTypes(in html: String) -> Set<String> {
+        var types: Set<String> = []
+        if let og = meta("og:type", in: html) { types.insert(og.lowercased()) }
+        for block in allCaptures(#"<script[^>]*type=["']application/ld\+json["'][^>]*>(.*?)</script>"#, in: html) {
+            guard let data = block.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) else { continue }
+            for node in flatten(json) {
+                let nodeTypes = (node["@type"] as? [String]) ?? (node["@type"] as? String).map { [$0] } ?? []
+                types.formUnion(nodeTypes.map { $0.lowercased() })
+            }
+        }
+        return types
+    }
 
     private static func jsonLDIsVenue(in html: String) -> Bool {
         for block in allCaptures(#"<script[^>]*type=["']application/ld\+json["'][^>]*>(.*?)</script>"#, in: html) {

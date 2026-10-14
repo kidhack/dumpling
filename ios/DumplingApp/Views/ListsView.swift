@@ -153,7 +153,7 @@ struct ListDetailView: View {
 
     private var visible: [Item] {
         guard let filter else { return items }
-        return items.filter { $0.category == filter.rawValue }
+        return items.filter { $0.itemCategory?.rawValue == filter.rawValue }
     }
 
     var body: some View {

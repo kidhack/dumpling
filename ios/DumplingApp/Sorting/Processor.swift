@@ -65,6 +65,7 @@ enum Processor {
 
     private static func record(_ plan: Sorter.Plan, on item: Item, pageEvent: Bool) {
         item.category = plan.category.rawValue
+        item.mediaKind = plan.category == .media ? (plan.mediaKind ?? .article).rawValue : nil
         item.title = plan.title
         item.relevantDate = plan.start
         item.isAllDay = plan.allDay
@@ -134,7 +135,8 @@ enum Processor {
     /// reminder or event without changing its category.
     static func fileNow(_ item: Item, as target: ItemCategory? = nil, filer: Filer) async {
         let plan = Sorter.Plan(
-            category: target ?? item.category.flatMap(ItemCategory.init(rawValue:)) ?? .other,
+            category: target ?? ItemCategory(stored: item.category) ?? .idea,
+            mediaKind: item.mediaKind.flatMap(MediaKind.init(rawValue:)),
             title: item.displayTitle, start: item.relevantDate, end: nil,
             allDay: item.isAllDay, location: item.location
         )
@@ -160,7 +162,7 @@ enum Processor {
             case .task:
                 result = try await filer.fileReminder(title: plan.title, notes: notes, url: url,
                                                       due: plan.start, allDay: plan.allDay)
-            case .location, .link, .idea, .music, .other:
+            case .location, .shopping, .media, .link, .idea:
                 item.status = "kept"
                 return
             }
@@ -178,7 +180,7 @@ enum Processor {
     private static func keep(_ item: Item, because error: Error) {
         logger.error("Couldn't sort \(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
         item.status = "kept"
-        item.category = ItemCategory.other.rawValue
+        item.category = ItemCategory.idea.rawValue
         item.sortError = error.localizedDescription
     }
 }

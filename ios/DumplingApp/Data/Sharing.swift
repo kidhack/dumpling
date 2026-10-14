@@ -228,6 +228,7 @@ enum Sharing {
         copy.status = source.status
         copy.syncedAt = source.syncedAt
         copy.category = source.category
+        copy.mediaKind = source.mediaKind
         copy.title = source.title
         copy.relevantDate = source.relevantDate
         copy.filedTo = source.filedTo

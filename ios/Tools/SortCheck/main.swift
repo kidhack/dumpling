@@ -95,7 +95,7 @@ func show(_ item: Item, page: PageInfo?) async {
                                                 : $0.formatted(date: .complete, time: .shortened) } ?? "-"
         print(String(format: "%.1fs", Date().timeIntervalSince(started)), "|", item.contentURL ?? item.contentText ?? "",
               "\n   page:", page?.title ?? "-", page?.event != nil ? "(has event data)" : "",
-              "\n   →", plan.category, "|", plan.title, "|", when, "| loc:", plan.location ?? "-")
+              "\n   →", plan.category, plan.mediaKind.map { "(\($0.rawValue))" } ?? "", "|", plan.title, "|", when, "| loc:", plan.location ?? "-")
     } catch {
         print("ERROR", item.contentURL ?? item.contentText ?? "", error)
     }

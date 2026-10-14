@@ -17,6 +17,8 @@ final class Item: NSManagedObject {
 
     // Set by on-device sorting
     @NSManaged var category: String?
+    /// For Media items: music, book, podcast, audiobook, article, blog or video (`MediaKind`).
+    @NSManaged var mediaKind: String?
     @NSManaged var title: String?
     @NSManaged var relevantDate: Date?
     @NSManaged var filedTo: String?

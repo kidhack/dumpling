@@ -74,7 +74,7 @@ struct ItemsListView: View {
 
     private var visible: [Item] {
         guard let filter else { return inSection }
-        return inSection.filter { $0.category == filter.rawValue }
+        return inSection.filter { $0.itemCategory?.rawValue == filter.rawValue }
     }
 
     private var selectedItems: [Item] { visible.filter { selection.contains($0.id) } }
@@ -343,7 +343,7 @@ struct ItemsBottomControls: View {
 
     /// Categories present in `items`, plus the current filter so it never disappears from under the user.
     static func filters(for items: [Item], keeping filter: CategoryKind?) -> [CategoryKind] {
-        let present = Set(items.compactMap(\.category))
+        let present = Set(items.compactMap { $0.itemCategory?.rawValue })
         return CategoryKind.allCases.filter { present.contains($0.rawValue) || $0 == filter }
     }
 
