@@ -56,6 +56,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // A little larger than the system's 17 pt for the small centered titles.
+        UINavigationBar.appearance().titleTextAttributes = [.font: UIFont.systemFont(ofSize: 19, weight: .semibold)]
         NearbyAlerts.shared.start()
         return true
     }

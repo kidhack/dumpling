@@ -235,13 +235,12 @@ struct ListDetailView: View {
         // Like a Reminders list: a large title (small once scrolled, or over the map) with its count. Tapping the
         // title opens List Details: custom title items, since a title menu adds a chevron.
         .navigationTitle(list.name)
+        .navigationSubtitle(subtitle)
         .navigationBarTitleDisplayMode(showingMap ? .inline : .large)
         .toolbar {
+            // Only the large title is custom: a custom small title kept the bar small even at the top.
             ToolbarItem(placement: .largeTitle) {
                 titleButton(large: true)
-            }
-            ToolbarItem(placement: .title) {
-                titleButton(large: false)
             }
             ToolbarItem(placement: .topBarTrailing) { listMenu }
         }
@@ -275,6 +274,8 @@ struct ListDetailView: View {
             }
             .lineLimit(1)
             .frame(maxWidth: large ? .infinity : nil, alignment: .leading)
+            // The system's large titles sit lower than a custom one does; match them (Inbox's, say).
+            .padding(.top, large ? 10 : 0)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
