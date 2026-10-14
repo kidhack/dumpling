@@ -4,6 +4,8 @@ import SwiftUI
 struct CategoryFilterBar: View {
     @Binding var selection: CategoryKind?
     let available: [CategoryKind]
+    /// Shown as a map button above the Location pill while that filter is on.
+    var showMap: (() -> Void)?
 
     /// Shared with the Select mode action bar so switching between them doesn't move anything.
     static let chipHeight: CGFloat = 36
@@ -11,7 +13,12 @@ struct CategoryFilterBar: View {
     /// Room above the tab bar so a reach for a filter doesn't land on a tab.
     static let bottomPadding: CGFloat = 24
 
+    static let mapButtonSize: CGFloat = 44
+
     @State private var chipFrames: [String: CGRect] = [:]
+    @State private var scrollingChipFrames: [String: CGRect] = [:]
+    /// Center of the Location pill's icon in each layout, keyed by whether the pill stretches.
+    @State private var locationIconX: [Bool: CGFloat] = [:]
 
     var body: some View {
         // The selected pill stretches so the row spans the screen; with too many categories to fit, it scrolls.
@@ -31,9 +38,12 @@ struct CategoryFilterBar: View {
                 .padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
                 chips(stretchSelected: false)
+                    .coordinateSpace(.named("filterChips"))
                     .padding(.horizontal, 16)
             }
             .scrollBounceBehavior(.basedOnSize)
+            // The map button sits above the row, outside the scroll view's bounds.
+            .scrollClipDisabled()
         }
         .padding(.top, Self.topPadding)
         .padding(.bottom, Self.bottomPadding)
@@ -49,6 +59,29 @@ struct CategoryFilterBar: View {
                 chip(kind, label: kind.label, systemImage: kind.systemImage, tint: kind.tint, stretch: stretchSelected)
             }
         }
+        .overlay(alignment: .topLeading) {
+            let frames = stretchSelected ? chipFrames : scrollingChipFrames
+            if selection == .location, let showMap, let pill = frames[CategoryKind.location.rawValue] {
+                mapButton(action: showMap)
+                    .position(x: locationIconX[stretchSelected] ?? pill.midX,
+                              y: pill.minY - Self.topPadding - 8 - Self.mapButtonSize / 2)
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+            }
+        }
+    }
+
+    private func mapButton(action: @escaping () -> Void) -> some View {
+        let tint = CategoryKind.location.tint
+        return Button(action: action) {
+            Image(systemName: "map.fill")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: Self.mapButtonSize, height: Self.mapButtonSize)
+                .background(tint, in: .circle)
+                .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Show on Map")
     }
 
     private func chip(_ kind: CategoryKind?, label: String, systemImage: String, tint: Color, stretch: Bool) -> some View {
@@ -59,6 +92,9 @@ struct CategoryFilterBar: View {
             HStack(spacing: 6) {
                 Image(systemName: systemImage)
                     .font(.body.weight(.semibold))
+                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("filterChips")).midX } action: { x in
+                        if kind == .location { locationIconX[stretch] = x }
+                    }
                 if isSelected {
                     Text(label)
                         .font(.subheadline.weight(.semibold))
@@ -71,7 +107,11 @@ struct CategoryFilterBar: View {
             .background(isSelected ? tint : tint.opacity(0.15), in: .capsule)
         }
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("filterChips")) } action: { frame in
-            chipFrames[kind?.rawValue ?? "all"] = frame
+            if stretch {
+                chipFrames[kind?.rawValue ?? "all"] = frame
+            } else {
+                scrollingChipFrames[kind?.rawValue ?? "all"] = frame
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

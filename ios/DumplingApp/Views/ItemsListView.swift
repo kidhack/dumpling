@@ -63,6 +63,7 @@ struct ItemsListView: View {
     @State private var selection = Set<UUID>()
     @State private var listPickerItems: [Item] = []
     @State private var showingListPicker = false
+    @State private var showingMap = false
 
     private var isSelecting: Bool { editMode.isEditing }
     private var inSection: [Item] { items.filter(section.contains) }
@@ -145,6 +146,7 @@ struct ItemsListView: View {
                 }
             }
             .sheet(isPresented: $showingAbout) { AboutView() }
+            .sheet(isPresented: $showingMap) { ItemsMapView(items: visible, filer: pipeline.filer) }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .navigationTitle(section.rawValue)
             .toolbar(.hidden, for: .navigationBar)
@@ -163,7 +165,7 @@ struct ItemsListView: View {
                 if isSelecting {
                     selectionBar
                 } else if !inSection.isEmpty {
-                    CategoryFilterBar(selection: $filter, available: availableFilters)
+                    CategoryFilterBar(selection: $filter, available: availableFilters) { showingMap = true }
                 }
             }
             // Tapping this tab while on it: back to All, back to the top.

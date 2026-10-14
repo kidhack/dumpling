@@ -90,7 +90,7 @@ final class Item: NSManagedObject {
         super.willSave()
         guard !isDeleted, managedObjectContext === Persistence.shared.viewContext else { return }
         let changed = Set(changedValues().keys)
-        guard !changed.isSubset(of: ["modifiedByID", "modifiedAt", "syncedAt", "hearts"]) else { return }
+        guard !changed.isSubset(of: ["modifiedByID", "modifiedAt", "syncedAt", "hearts", "latitude", "longitude"]) else { return }
         // Primitive setters so this doesn't trigger another round of willSave.
         setPrimitiveValue(Hearts.myID, forKey: "modifiedByID")
         setPrimitiveValue(Date(), forKey: "modifiedAt")
