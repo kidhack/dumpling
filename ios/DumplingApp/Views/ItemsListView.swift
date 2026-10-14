@@ -105,6 +105,8 @@ struct ItemsListView: View {
             }
             .environment(\.editMode, $editMode)
             .listSectionSpacing(10)
+            // The list's edge blur would draw over the map covering it; on the map, controls sit right on it.
+            .scrollEdgeEffectHidden(showingMap, for: .all)
             // Pull down past the newest item to add one (Inbox only). Only real drags count: layout changes
             // (launch, a sheet closing) can briefly read as overscroll.
             .onScrollGeometryChange(for: CGFloat.self) { geo in
