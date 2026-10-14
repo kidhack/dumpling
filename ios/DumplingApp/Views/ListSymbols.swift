@@ -15,7 +15,7 @@ enum ListSymbols {
         let keywords: String
     }
 
-    /// 340 icons, all verified against the SF Symbols catalog.
+    /// 370 icons, all verified against the SF Symbols catalog.
     static let sections: [Section] = [
         Section(title: "General", symbols: [
             Symbol(name: "list.bullet", keywords: "list"),
@@ -39,6 +39,31 @@ enum ListSymbols {
             Symbol(name: "questionmark.circle.fill", keywords: "maybe questions"),
             Symbol(name: "infinity", keywords: "forever always"),
             Symbol(name: "quote.opening", keywords: "quotes sayings"),
+            Symbol(name: "face.smiling.inverse", keywords: "smile happy face fun"),
+            Symbol(name: "exclamationmark.3", keywords: "urgent important priority"),
+            Symbol(name: "rosette", keywords: "award ribbon best"),
+        ]),
+        Section(title: "Shapes", symbols: [
+            Symbol(name: "square.fill", keywords: "square shape"),
+            Symbol(name: "circle.fill", keywords: "circle dot shape"),
+            Symbol(name: "triangle.fill", keywords: "triangle shape"),
+            Symbol(name: "diamond.fill", keywords: "diamond shape"),
+            Symbol(name: "hexagon.fill", keywords: "hexagon shape"),
+            Symbol(name: "pentagon.fill", keywords: "pentagon shape"),
+            Symbol(name: "octagon.fill", keywords: "octagon stop shape"),
+            Symbol(name: "seal.fill", keywords: "seal badge shape"),
+            Symbol(name: "rhombus.fill", keywords: "rhombus shape"),
+            Symbol(name: "capsule.fill", keywords: "capsule pill shape"),
+            Symbol(name: "oval.fill", keywords: "oval egg shape"),
+            Symbol(name: "rectangle.fill", keywords: "rectangle shape"),
+            Symbol(name: "circle.circle.fill", keywords: "target ring circle shape"),
+            Symbol(name: "suit.diamond.fill", keywords: "diamond card suit shape"),
+            Symbol(name: "cube.fill", keywords: "cube box 3d shape"),
+            Symbol(name: "cone.fill", keywords: "cone 3d shape"),
+            Symbol(name: "cylinder.fill", keywords: "cylinder can 3d shape"),
+            Symbol(name: "pyramid.fill", keywords: "pyramid 3d shape"),
+            Symbol(name: "number", keywords: "number hash pound"),
+            Symbol(name: "asterisk", keywords: "asterisk star note"),
         ]),
         Section(title: "Travel", symbols: [
             Symbol(name: "airplane", keywords: "flight plane travel trip"),
@@ -93,6 +118,7 @@ enum ListSymbols {
             Symbol(name: "cross.circle.fill", keywords: "hospital clinic"),
             Symbol(name: "tent.2.fill", keywords: "campsite"),
             Symbol(name: "building.2.crop.circle.fill", keywords: "city"),
+            Symbol(name: "mappin", keywords: "place pin location"),
         ]),
         Section(title: "Food and drink", symbols: [
             Symbol(name: "fork.knife", keywords: "restaurant food dinner eat"),
@@ -203,6 +229,8 @@ enum ListSymbols {
             Symbol(name: "camera.aperture", keywords: "photography lens"),
             Symbol(name: "scissors", keywords: "crafts cut"),
             Symbol(name: "eyedropper.full", keywords: "color design"),
+            Symbol(name: "pencil.and.ruler.fill", keywords: "design draw plan school"),
+            Symbol(name: "compass.drawing", keywords: "design geometry draw"),
         ]),
         Section(title: "Ideas and tech", symbols: [
             Symbol(name: "lightbulb.fill", keywords: "ideas idea"),
@@ -227,6 +255,7 @@ enum ListSymbols {
             Symbol(name: "qrcode", keywords: "qr code"),
             Symbol(name: "globe", keywords: "web internet world"),
             Symbol(name: "icloud.fill", keywords: "cloud icloud"),
+            Symbol(name: "curlybraces", keywords: "code programming dev"),
         ]),
         Section(title: "Sports and fitness", symbols: [
             Symbol(name: "sportscourt.fill", keywords: "sports court"),
@@ -263,6 +292,7 @@ enum ListSymbols {
             Symbol(name: "figure.strengthtraining.traditional", keywords: "weights strength"),
             Symbol(name: "figure.pilates", keywords: "pilates"),
             Symbol(name: "figure.indoor.cycle", keywords: "spin cycling"),
+            Symbol(name: "tennis.racket", keywords: "tennis sport racket"),
         ]),
         Section(title: "Health", symbols: [
             Symbol(name: "heart.text.square.fill", keywords: "health"),
@@ -343,6 +373,7 @@ enum ListSymbols {
             Symbol(name: "video.fill", keywords: "video call facetime"),
             Symbol(name: "paperplane.fill", keywords: "send"),
             Symbol(name: "megaphone.fill", keywords: "announce"),
+            Symbol(name: "bubble.left.fill", keywords: "chat message talk"),
         ]),
         Section(title: "People", symbols: [
             Symbol(name: "person.fill", keywords: "person me"),
@@ -392,6 +423,7 @@ enum ListSymbols {
             Symbol(name: "door.left.hand.open", keywords: "door"),
             Symbol(name: "list.clipboard.fill", keywords: "checklist work"),
             Symbol(name: "signature", keywords: "signature contracts"),
+            Symbol(name: "doc.fill", keywords: "document file paper"),
         ]),
     ]
 }

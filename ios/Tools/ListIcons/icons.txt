@@ -21,6 +21,30 @@ exclamationmark.triangle.fill: warning urgent
 questionmark.circle.fill: maybe questions
 infinity: forever always
 quote.opening: quotes sayings
+face.smiling.inverse: smile happy face fun
+exclamationmark.3: urgent important priority
+rosette: award ribbon best
+## Shapes
+square.fill: square shape
+circle.fill: circle dot shape
+triangle.fill: triangle shape
+diamond.fill: diamond shape
+hexagon.fill: hexagon shape
+pentagon.fill: pentagon shape
+octagon.fill: octagon stop shape
+seal.fill: seal badge shape
+rhombus.fill: rhombus shape
+capsule.fill: capsule pill shape
+oval.fill: oval egg shape
+rectangle.fill: rectangle shape
+circle.circle.fill: target ring circle shape
+suit.diamond.fill: diamond card suit shape
+cube.fill: cube box 3d shape
+cone.fill: cone 3d shape
+cylinder.fill: cylinder can 3d shape
+pyramid.fill: pyramid 3d shape
+number: number hash pound
+asterisk: asterisk star note
 ## Travel
 airplane: flight plane travel trip
 airplane.departure: departure flight
@@ -73,6 +97,7 @@ house.and.flag.fill: home base
 cross.circle.fill: hospital clinic
 tent.2.fill: campsite
 building.2.crop.circle.fill: city
+mappin: place pin location
 ## Food and drink
 fork.knife: restaurant food dinner eat
 fork.knife.circle.fill: restaurant food
@@ -177,6 +202,8 @@ pencil.tip: drawing
 camera.aperture: photography lens
 scissors: crafts cut
 eyedropper.full: color design
+pencil.and.ruler.fill: design draw plan school
+compass.drawing: design geometry draw
 ## Ideas and tech
 lightbulb.fill: ideas idea
 brain.head.profile: thinking brain
@@ -200,6 +227,7 @@ antenna.radiowaves.left.and.right: radio signal
 qrcode: qr code
 globe: web internet world
 icloud.fill: cloud icloud
+curlybraces: code programming dev
 ## Sports and fitness
 sportscourt.fill: sports court
 soccerball: soccer football
@@ -235,6 +263,7 @@ snowboard.fill: snowboard
 figure.strengthtraining.traditional: weights strength
 figure.pilates: pilates
 figure.indoor.cycle: spin cycling
+tennis.racket: tennis sport racket
 ## Health
 heart.text.square.fill: health
 cross.case.fill: first aid medical
@@ -310,6 +339,7 @@ bubble.left.and.bubble.right.fill: chat conversation
 video.fill: video call facetime
 paperplane.fill: send
 megaphone.fill: announce
+bubble.left.fill: chat message talk
 ## People
 person.fill: person me
 person.2.fill: friends people
@@ -358,3 +388,4 @@ powerplug.fill: power plug
 door.left.hand.open: door
 list.clipboard.fill: checklist work
 signature: signature contracts
+doc.fill: document file paper
