@@ -104,6 +104,14 @@ struct ListsView: View {
 private struct ListRow: View {
     /// Observed so edits (name, icon, color) show without the Lists tab having to reload.
     @ObservedObject var list: ItemList
+    /// Fetched so the count drops as soon as an item is archived (the list itself doesn't change then).
+    @FetchRequest private var activeItems: FetchedResults<Item>
+
+    init(list: ItemList) {
+        self.list = list
+        _activeItems = FetchRequest(sortDescriptors: [],
+                                    predicate: NSPredicate(format: "list == %@ AND archivedAt == nil", list))
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -118,7 +126,7 @@ private struct ListRow: View {
                     .accessibilityLabel("Shared")
             }
             Spacer()
-            Text("\(list.itemCount)")
+            Text("\(activeItems.count)")
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         }
@@ -146,8 +154,18 @@ struct ListDetailView: View {
 
     private var canEdit: Bool { Sharing.canEdit(list) }
 
-    /// Newest first; archived items are in Archived, not here.
-    private var items: [Item] { list.activeItems.sorted { $0.timestamp > $1.timestamp } }
+    /// The list's items that aren't archived, newest first. Fetched rather than read from `list`: the list only
+    /// changes when items join or leave it, so archiving an item didn't take it off the screen.
+    @FetchRequest private var fetchedItems: FetchedResults<Item>
+
+    init(list: ItemList, isActiveTab: Bool = true) {
+        self.list = list
+        self.isActiveTab = isActiveTab
+        _fetchedItems = FetchRequest(sortDescriptors: [SortDescriptor(\Item.timestamp, order: .reverse)],
+                                     predicate: NSPredicate(format: "list == %@ AND archivedAt == nil", list))
+    }
+
+    private var items: [Item] { Array(fetchedItems) }
 
     private var availableFilters: [CategoryKind] { ItemsBottomControls.filters(for: items, keeping: filter) }
 
