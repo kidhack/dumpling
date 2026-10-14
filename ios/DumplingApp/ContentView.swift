@@ -58,7 +58,7 @@ struct ContentView: View {
                               isActiveTab: selection == .section(.inbox))
             }
             Tab("Lists", systemImage: "list.bullet", value: AppTab.lists) {
-                ListsView(resetToken: listsReset)
+                ListsView(resetToken: listsReset, isActiveTab: selection == .lists)
             }
             ForEach([ItemsSection.filed, .archived]) { section in
                 Tab(section.rawValue, systemImage: section.systemImage, value: AppTab.section(section)) {

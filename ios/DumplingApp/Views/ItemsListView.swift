@@ -82,8 +82,7 @@ struct ItemsListView: View {
 
     /// Categories present in this tab, plus the selected one so it doesn't vanish while chosen.
     private var availableFilters: [CategoryKind] {
-        let present = Set(inSection.compactMap(\.category))
-        return CategoryKind.allCases.filter { present.contains($0.rawValue) || $0 == filter }
+        ItemsBottomControls.filters(for: inSection, keeping: filter)
     }
 
     var body: some View {
@@ -249,22 +248,9 @@ struct ItemsListView: View {
         }
     }
 
-    /// The selected place's card, the Map / List pill and the filter row.
     private var bottomControls: some View {
-        VStack(spacing: 12) {
-            if showingMap, let pin = ItemsMapView.pins(for: visible).first(where: { $0.id == selectedPin }) {
-                PlaceCard(item: pin.item, coordinate: pin.coordinate, userLocation: userLocation)
-                    .padding(.horizontal, 16)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
-            }
-            if filter == .location {
-                MapListToggle(showingMap: $showingMap)
-                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
-            }
-            CategoryFilterBar(selection: $filter, available: availableFilters)
-        }
-        .animation(.easeOut(duration: 0.2), value: selectedPin)
-        .animation(.snappy(duration: 0.2), value: filter)
+        ItemsBottomControls(visible: visible, filter: $filter, available: availableFilters,
+                            showingMap: $showingMap, selectedPin: selectedPin, userLocation: userLocation)
     }
 
     // MARK: - Selection
@@ -414,6 +400,40 @@ struct ItemRowView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// Below a section's or list's items: the selected place's card (on the map), the Map / List pill (with the
+/// Location filter on) and the filter row.
+struct ItemsBottomControls: View {
+    let visible: [Item]
+    @Binding var filter: CategoryKind?
+    let available: [CategoryKind]
+    @Binding var showingMap: Bool
+    let selectedPin: UUID?
+    let userLocation: CLLocation?
+
+    /// Categories present in `items`, plus the current filter so it never disappears from under the user.
+    static func filters(for items: [Item], keeping filter: CategoryKind?) -> [CategoryKind] {
+        let present = Set(items.compactMap(\.category))
+        return CategoryKind.allCases.filter { present.contains($0.rawValue) || $0 == filter }
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            if showingMap, let pin = ItemsMapView.pins(for: visible).first(where: { $0.id == selectedPin }) {
+                PlaceCard(item: pin.item, coordinate: pin.coordinate, userLocation: userLocation)
+                    .padding(.horizontal, 16)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+            }
+            if filter == .location {
+                MapListToggle(showingMap: $showingMap)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
+            CategoryFilterBar(selection: $filter, available: available)
+        }
+        .animation(.easeOut(duration: 0.2), value: selectedPin)
+        .animation(.snappy(duration: 0.2), value: filter)
     }
 }
 
