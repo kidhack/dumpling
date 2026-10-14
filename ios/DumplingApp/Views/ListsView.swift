@@ -98,7 +98,8 @@ struct ListsView: View {
 }
 
 private struct ListRow: View {
-    let list: ItemList
+    /// Observed so edits (name, icon, color) show without the Lists tab having to reload.
+    @ObservedObject var list: ItemList
 
     var body: some View {
         HStack(spacing: 12) {

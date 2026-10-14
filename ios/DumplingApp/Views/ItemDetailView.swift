@@ -95,16 +95,14 @@ struct ItemDetailView: View {
             showingListPicker = true
         } label: {
             HStack(spacing: 12) {
-                Group {
-                    if let list = item.list {
-                        ListIcon(list: list, size: 22)
-                    } else {
-                        Image(systemName: "list.bullet").foregroundStyle(.teal)
-                    }
+                if let list = item.list {
+                    ListLabel(list: list)
+                } else {
+                    Image(systemName: "list.bullet").foregroundStyle(.teal)
+                        .frame(width: 22)
+                    Text("Add to List")
+                        .foregroundStyle(.secondary)
                 }
-                .frame(width: 22)
-                Text(item.list?.name ?? "Add to List")
-                    .foregroundStyle(item.list == nil ? .secondary : .primary)
                 Spacer()
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.footnote)
@@ -413,5 +411,16 @@ struct ReminderRow: View {
             reminder.isCompleted = done
             try? store.save(reminder, commit: true)
         }
+    }
+}
+
+/// A list's icon and name, observed so renames and new icons or colors show right away.
+private struct ListLabel: View {
+    @ObservedObject var list: ItemList
+
+    var body: some View {
+        ListIcon(list: list, size: 22)
+            .frame(width: 22)
+        Text(list.name)
     }
 }
