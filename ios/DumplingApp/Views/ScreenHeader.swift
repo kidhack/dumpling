@@ -49,13 +49,41 @@ extension View {
 
 private struct ScreenHeaderModifier<Header: View>: ViewModifier {
     let header: Header
+    @State private var isScrolled = false
 
     func body(content: Content) -> some View {
-        // A bar, not an inset, so content scrolling under it gets the system's soft edge effect.
         content
+            .onScrollGeometryChange(for: Bool.self) { geo in
+                geo.contentOffset.y + geo.contentInsets.top > 2
+            } action: { _, scrolled in
+                // No withAnimation here: it animated the list's top inset mid-bounce, so pulling past the
+                // top settled near row 2 and then snapped. Only the backdrop's opacity animates (below).
+                isScrolled = scrolled
+            }
+            // A bar, not an inset, so content scrolling under it gets the system's soft edge effect.
             .safeAreaBar(edge: .top, spacing: 0) {
                 // Room between the header controls and the first card.
-                header.padding(.bottom, 14)
+                header
+                    .padding(.bottom, 14)
+                    .background { backdrop }
             }
+    }
+
+    /// Like Reminders and Notes: once the list scrolls, what's behind the header blurs and dims, solid behind
+    /// the buttons and fading out just below them. At rest nothing covers the first card.
+    private var backdrop: some View {
+        let mask = LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.6),
+                                          .init(color: .clear, location: 1)],
+                                  startPoint: .top, endPoint: .bottom)
+        return ZStack {
+            Rectangle().fill(.ultraThinMaterial)
+            Color(.systemGroupedBackground).opacity(0.55)
+        }
+        .mask(mask)
+        .padding(.bottom, -16)
+        .ignoresSafeArea(edges: .top)
+        .opacity(isScrolled ? 1 : 0)
+        .animation(.easeOut(duration: 0.2), value: isScrolled)
+        .allowsHitTesting(false)
     }
 }
