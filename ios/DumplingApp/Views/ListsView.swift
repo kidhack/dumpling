@@ -232,14 +232,17 @@ struct ListDetailView: View {
                 }
             }
         }
-        // Like a Reminders list: a large title (small over the map) with its count, and a title menu.
+        // Like a Reminders list: a large title (small once scrolled, or over the map) with its count. Tapping the
+        // title opens List Details: custom title items, since a title menu adds a chevron.
         .navigationTitle(list.name)
-        .navigationSubtitle(subtitle)
         .navigationBarTitleDisplayMode(showingMap ? .inline : .large)
-        .toolbarTitleMenu {
-            Button("List Details…", systemImage: "info.circle") { showingEdit = true }
-        }
         .toolbar {
+            ToolbarItem(placement: .largeTitle) {
+                titleButton(large: true)
+            }
+            ToolbarItem(placement: .title) {
+                titleButton(large: false)
+            }
             ToolbarItem(placement: .topBarTrailing) { listMenu }
         }
         .sheet(isPresented: $showingEdit) { EditListSheet(list: list, onLeave: { dismiss() }) }
@@ -256,6 +259,27 @@ struct ListDetailView: View {
     private var subtitle: String {
         let count = items.count == 1 ? "1 item" : "\(items.count) items"
         return Sharing.isShared(list) ? "Shared · \(count)" : count
+    }
+
+    private func titleButton(large: Bool) -> some View {
+        Button {
+            showingEdit = true
+        } label: {
+            VStack(alignment: large ? .leading : .center, spacing: large ? 2 : 0) {
+                Text(list.name)
+                    .font(large ? .largeTitle.bold() : .headline)
+                    .foregroundStyle(Color(.label))
+                Text(subtitle)
+                    .font(large ? .subheadline : .caption)
+                    .foregroundStyle(.secondary)
+            }
+            .lineLimit(1)
+            .frame(maxWidth: large ? .infinity : nil, alignment: .leading)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(list.name), \(subtitle)")
+        .accessibilityHint("Opens List Details")
     }
 
     private var listMenu: some View {
