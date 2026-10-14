@@ -28,7 +28,7 @@ struct ItemDetailView: View {
         Form {
             Section {
                 if !item.isFiled {
-                    TextField("Title", text: doneOnReturn(optional(\.title)), axis: .vertical)
+                    TextField("Title", text: optional(\.title).doneOnReturn, axis: .vertical)
                         .submitLabel(.done)
                         .font(.title2.weight(.semibold))
                 }
@@ -257,7 +257,7 @@ struct ItemDetailView: View {
             }
         }
         iconRow("note.text") {
-            TextField("Note", text: doneOnReturn(optional(\.userNote)), axis: .vertical)
+            TextField("Note", text: optional(\.userNote).doneOnReturn, axis: .vertical)
                 .submitLabel(.done)
                 .lineLimit(1...5)
                 .disabled(item.isFiled)
@@ -461,22 +461,6 @@ struct ItemDetailView: View {
     }
 
     // MARK: - Bindings
-
-    /// For fields that wrap onto several lines: return is Done, so it closes the keyboard instead of adding a
-    /// line break. (A wrapping TextField otherwise always inserts one.)
-    private func doneOnReturn(_ text: Binding<String>) -> Binding<String> {
-        Binding(
-            get: { text.wrappedValue },
-            set: { newValue in
-                guard newValue.contains("\n") else {
-                    text.wrappedValue = newValue
-                    return
-                }
-                text.wrappedValue = newValue.replacingOccurrences(of: "\n", with: "")
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            }
-        )
-    }
 
     private func optional(_ keyPath: ReferenceWritableKeyPath<Item, String?>) -> Binding<String> {
         Binding(

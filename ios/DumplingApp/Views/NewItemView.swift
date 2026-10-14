@@ -20,11 +20,14 @@ struct NewItemView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Link or text", text: $content, axis: .vertical)
+                    // Return is Done: it closes the keyboard rather than adding a line break.
+                    TextField("Link or text", text: $content.doneOnReturn, axis: .vertical)
                         .lineLimit(1...6)
+                        .submitLabel(.done)
                         .focused($contentFocused)
-                    TextField("Note", text: $note, axis: .vertical)
+                    TextField("Note", text: $note.doneOnReturn, axis: .vertical)
                         .lineLimit(1...4)
+                        .submitLabel(.done)
                 }
                 Section {
                     CategoryButtons(selection: $category)
