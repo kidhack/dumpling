@@ -1,9 +1,13 @@
-import SwiftUI
+import CloudKit
 import CoreData
+import SwiftUI
 
-/// Name, color and icon for a list, like Reminders' List Info. Pass nil to create a new list.
+/// List Details: name, color, icon and who it's shared with, like Reminders' List Info.
+/// Pass nil to create a new list.
 struct EditListSheet: View {
     let list: ItemList?
+    /// Called after leaving a shared list, so the screen showing it can close.
+    var onLeave: () -> Void = {}
 
     @Environment(\.managedObjectContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -28,6 +32,8 @@ struct EditListSheet: View {
     }
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// People invited without edit access can look but not change anything.
+    private var canEdit: Bool { list.map(Sharing.canEdit) ?? true }
     private let symbolColumns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 6)
     private let colorColumns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 6)
 
@@ -46,7 +52,13 @@ struct EditListSheet: View {
                         .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 12))
                         .focused($nameFocused)
                         .submitLabel(.done)
+                        .disabled(!canEdit)
 
+                    if let list {
+                        membersSection(list)
+                    }
+
+                    Group {
                     LazyVGrid(columns: colorColumns, spacing: 10) {
                         ForEach(ListColor.allCases) { option in
                             Button { color = option } label: {
@@ -106,19 +118,26 @@ struct EditListSheet: View {
                     }
                     .padding(14)
                     .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
+                    }
+                    .disabled(!canEdit)
+                    .opacity(canEdit ? 1 : 0.5)
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 24)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle(list == nil ? "New List" : "Edit List")
+            .navigationTitle(list == nil ? "New List" : "List Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    if canEdit { Button("Cancel") { dismiss() } }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done", action: save).disabled(trimmedName.isEmpty)
+                    if canEdit {
+                        Button("Done", action: save).disabled(trimmedName.isEmpty)
+                    } else {
+                        Button("Close") { dismiss() }
+                    }
                 }
             }
             .onAppear {
@@ -131,6 +150,49 @@ struct EditListSheet: View {
                 }
             }
         }
+    }
+
+    // MARK: - Members
+
+    private func membersSection(_ list: ItemList) -> some View {
+        let people = Sharing.participants(of: list)
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Shared With")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            if people.isEmpty {
+                Text("Only you. Share this list to plan it with others.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(people, id: \.self) { person in
+                    MemberRow(person: person, isYou: Sharing.isCurrentUser(person, in: list))
+                }
+            }
+
+            if Sharing.isOwner(of: list) {
+                Button {
+                    Task { await ShareController.shared.present(list) }
+                } label: {
+                    Label(people.isEmpty ? "Share List…" : "Manage Sharing…", systemImage: "person.crop.circle.badge.plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Button(role: .destructive) {
+                    dismiss()
+                    onLeave()
+                    Task { await Sharing.leave(list) }
+                } label: {
+                    Label("Leave List", systemImage: "rectangle.portrait.and.arrow.right")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
     }
 
     private func symbolGrid(_ symbols: [ListSymbols.Symbol]) -> some View {
@@ -163,5 +225,45 @@ struct EditListSheet: View {
         target.symbolName = symbol
         try? modelContext.save()
         dismiss()
+    }
+}
+
+/// One person on a shared list: initials, name, and their role or invite status.
+private struct MemberRow: View {
+    let person: CKShare.Participant
+    let isYou: Bool
+
+    private var name: String { Sharing.displayName(person) }
+
+    private var initials: String {
+        if let components = person.userIdentity.nameComponents {
+            let short = PersonNameComponentsFormatter.localizedString(from: components, style: .abbreviated)
+            if !short.isEmpty { return short }
+        }
+        return String(name.prefix(1)).uppercased()
+    }
+
+    private var role: String {
+        if person.role == .owner { return "Owner" }
+        if person.acceptanceStatus == .pending { return "Invited" }
+        return person.permission == .readWrite ? "Can edit" : "View only"
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(initials)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(Color.accentColor.gradient, in: .circle)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isYou ? "\(name) (You)" : name)
+                Text(role)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .accessibilityElement(children: .combine)
     }
 }

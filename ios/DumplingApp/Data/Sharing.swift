@@ -37,6 +37,40 @@ enum Sharing {
         container.canUpdateRecord(forManagedObjectWith: list.objectID)
     }
 
+    // MARK: - People
+
+    /// Everyone on a shared list, owner first.
+    static func participants(of list: ItemList) -> [CKShare.Participant] {
+        guard let share = share(for: list) else { return [] }
+        return share.participants
+            .filter { $0.acceptanceStatus != .removed }
+            .sorted { ($0.role == .owner ? 0 : 1, displayName($0)) < ($1.role == .owner ? 0 : 1, displayName($1)) }
+    }
+
+    static func displayName(_ participant: CKShare.Participant) -> String {
+        let identity = participant.userIdentity
+        if let components = identity.nameComponents {
+            let name = PersonNameComponentsFormatter.localizedString(from: components, style: .default)
+            if !name.isEmpty { return name }
+        }
+        return identity.lookupInfo?.emailAddress ?? identity.lookupInfo?.phoneNumber ?? "Someone"
+    }
+
+    static func isCurrentUser(_ participant: CKShare.Participant, in list: ItemList) -> Bool {
+        share(for: list)?.currentUserParticipant == participant
+    }
+
+    /// "you", a participant's name, or nil when the person isn't known (e.g. the list isn't shared).
+    static func name(for userID: String?, in list: ItemList?) -> String? {
+        guard let userID else { return nil }
+        if userID == Hearts.myID { return "you" }
+        guard let list, let share = share(for: list) else { return nil }
+        if let match = share.participants.first(where: { $0.userIdentity.userRecordID?.recordName == userID }) {
+            return share.currentUserParticipant == match ? "you" : displayName(match)
+        }
+        return nil
+    }
+
     // MARK: - Sharing a list
 
     /// Shares the list (and its items), or returns its existing share.
@@ -186,6 +220,7 @@ enum Sharing {
         copy.archivedAt = source.archivedAt
         copy.isHearted = source.isHearted
         copy.otherHearts = source.otherHearts
+        copy.createdByID = source.createdByID
         // Hearts belong to the item, so they move with it into the copy's store.
         guard let context = copy.managedObjectContext else { return }
         for heart in source.heartRecords {

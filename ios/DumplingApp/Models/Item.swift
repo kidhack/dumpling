@@ -26,6 +26,10 @@ final class Item: NSManagedObject {
     @NSManaged var isAllDay: Bool
     @NSManaged var archivedAt: Date?
     @NSManaged var list: ItemList?
+    /// iCloud user record names, for "Added by" and "Edited by" on shared lists.
+    @NSManaged var createdByID: String?
+    @NSManaged var modifiedByID: String?
+    @NSManaged var modifiedAt: Date?
     @NSManaged private var hearts: NSSet?
     /// The user's own heart.
     @NSManaged var isHearted: Bool
@@ -76,6 +80,20 @@ final class Item: NSManagedObject {
         self.userNote = userNote
         self.quickTag = quickTag
         self.status = "pending"
+        self.createdByID = Hearts.myID
+    }
+
+    /// Stamps who changed the item and when. Only saves made on this device count: CloudKit imports
+    /// merge into the view context without saving it, so other people's changes keep their own stamps.
+    /// Heart and sync bookkeeping aren't edits.
+    override func willSave() {
+        super.willSave()
+        guard !isDeleted, managedObjectContext === Persistence.shared.viewContext else { return }
+        let changed = Set(changedValues().keys)
+        guard !changed.isSubset(of: ["modifiedByID", "modifiedAt", "syncedAt", "hearts"]) else { return }
+        // Primitive setters so this doesn't trigger another round of willSave.
+        setPrimitiveValue(Hearts.myID, forKey: "modifiedByID")
+        setPrimitiveValue(Date(), forKey: "modifiedAt")
     }
 
     // MARK: - Display helpers

@@ -37,8 +37,7 @@ struct ItemDetailView: View {
                     PlaceMapRow(name: item.displayTitle, address: item.location,
                                 coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
                 }
-                Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                    .foregroundStyle(.secondary)
+                attribution
             } footer: {
                 if let error = item.sortError, !item.isFiled {
                     Text(error)
@@ -117,6 +116,23 @@ struct ItemDetailView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(item.list.map { "List: \($0.name)" } ?? "Add to List")
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+    }
+
+    /// When the item was added and last edited, and by whom on a shared list.
+    private var attribution: some View {
+        let shared = item.list.map(Sharing.isShared) ?? false
+        let by: (String?) -> String = { id in
+            guard shared, let name = Sharing.name(for: id, in: item.list) else { return "" }
+            return " by \(name)"
+        }
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("Added\(by(item.createdByID)) · \(item.timestamp.formatted(date: .abbreviated, time: .shortened))")
+            if let edited = item.modifiedAt, edited.timeIntervalSince(item.timestamp) > 60 {
+                Text("Edited\(by(item.modifiedByID)) · \(edited.formatted(.relative(presentation: .named)))")
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
     }
 
     private var shownHeart: Bool { pendingHeart ?? item.heartedByMe }

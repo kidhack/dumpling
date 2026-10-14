@@ -29,7 +29,7 @@ struct ListsView: View {
                                       systemImage: Sharing.isOwner(of: list) ? "trash" : "rectangle.portrait.and.arrow.right")
                             }
                             Button { editing = EditTarget(list: list) } label: {
-                                Label("Edit", systemImage: "pencil")
+                                Label("Details", systemImage: "info.circle")
                             }
                             .tint(.gray)
                         }
@@ -83,9 +83,10 @@ struct ListsView: View {
             Button(Sharing.isShared(list) ? "Manage Sharing…" : "Share List…", systemImage: "person.2") {
                 Task { await ShareController.shared.present(list) }
             }
-            Button("Edit List…", systemImage: "pencil") { editing = EditTarget(list: list) }
+            Button("List Details…", systemImage: "info.circle") { editing = EditTarget(list: list) }
             Button("Delete", systemImage: "trash", role: .destructive) { delete(list) }
         } else {
+            Button("List Details…", systemImage: "info.circle") { editing = EditTarget(list: list) }
             Button("Leave List", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { delete(list) }
         }
     }
@@ -155,24 +156,35 @@ struct ListDetailView: View {
         .listSectionSpacing(10)
         .screenHeader {
             ScreenHeader {
-                Button {
-                    dismiss()
-                } label: {
-                    HStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button {
+                        dismiss()
+                    } label: {
                         Image(systemName: "chevron.left")
                             .font(.title3.weight(.semibold))
-                        ListIcon(list: list, size: 30)
-                        Text(list.name)
-                            .font(.title2.bold())
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
+                            .frame(minWidth: 28, minHeight: 44)
+                            .contentShape(.rect)
                     }
-                    .frame(minHeight: 44)
-                    .contentShape(.rect)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Back to Lists")
+                    // Tapping the list's name opens its details.
+                    Button {
+                        showingEdit = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            ListIcon(list: list, size: 30)
+                            Text(list.name)
+                                .font(.title2.bold())
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(list.name), List Details")
                 }
-                .buttonStyle(.plain)
                 .padding(.leading, -8)
-                .accessibilityLabel("Back to Lists")
             } trailing: {
                 Menu {
                     if Sharing.isOwner(of: list) {
@@ -180,15 +192,13 @@ struct ListDetailView: View {
                                systemImage: Sharing.isShared(list) ? "person.2" : "person.crop.circle.badge.plus") {
                             Task { await ShareController.shared.present(list) }
                         }
-                        Button("Edit List…", systemImage: "pencil") { showingEdit = true }
+                        Button("List Details…", systemImage: "info.circle") { showingEdit = true }
                         Button("Delete List", systemImage: "trash", role: .destructive) {
                             dismiss()
                             Task { await Sharing.delete(list, in: modelContext) }
                         }
                     } else {
-                        if Sharing.canEdit(list) {
-                            Button("Edit List…", systemImage: "pencil") { showingEdit = true }
-                        }
+                        Button("List Details…", systemImage: "info.circle") { showingEdit = true }
                         Button("Leave List", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                             dismiss()
                             Task { await Sharing.leave(list) }
@@ -211,7 +221,7 @@ struct ListDetailView: View {
         }
         .navigationTitle(list.name)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showingEdit) { EditListSheet(list: list) }
+        .sheet(isPresented: $showingEdit) { EditListSheet(list: list, onLeave: { dismiss() }) }
     }
 }
 
