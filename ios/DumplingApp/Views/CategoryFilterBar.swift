@@ -8,6 +8,9 @@ struct CategoryFilterBar: View {
     var showingMap: Binding<Bool>?
     /// Off when everything is one category, where All would show the same items.
     var showsAll = true
+    /// A moment after Location is selected, its pin turns into a map: the hint that tapping again opens one.
+    /// Kept by the screen, so coming back from the map shows the map icon without animating it again.
+    @Binding var showsMapHint: Bool
 
     /// Shared with the Select mode action bar so switching between them doesn't move anything.
     static let chipHeight: CGFloat = 36
@@ -16,8 +19,6 @@ struct CategoryFilterBar: View {
     static let bottomPadding: CGFloat = 24
 
     @State private var chipFrames: [String: CGRect] = [:]
-    /// A moment after Location is selected, its pin turns into a map: the hint that tapping again opens one.
-    @State private var showsMapHint = false
 
     var body: some View {
         // The selected pill stretches so the row spans the screen; with too many categories to fit, it scrolls.
@@ -44,8 +45,11 @@ struct CategoryFilterBar: View {
         .padding(.top, Self.topPadding)
         .padding(.bottom, Self.bottomPadding)
         .task(id: selection == .location && showingMap != nil) {
-            showsMapHint = false
-            guard selection == .location, showingMap != nil else { return }
+            guard selection == .location, showingMap != nil else {
+                showsMapHint = false
+                return
+            }
+            guard !showsMapHint else { return }
             try? await Task.sleep(for: .milliseconds(600))
             showsMapHint = true
         }

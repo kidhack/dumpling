@@ -68,6 +68,7 @@ struct ItemsListView: View {
     @State private var showingListPicker = false
     @State private var showingMap = false
     @State private var selectedPin: UUID?
+    @State private var showsMapHint = false
     @State private var userLocation: CLLocation?
 
     private var isSelecting: Bool { editMode.isEditing }
@@ -243,7 +244,8 @@ struct ItemsListView: View {
 
     private var bottomControls: some View {
         ItemsBottomControls(visible: visible, filter: $filter, available: availableFilters,
-                            showingMap: $showingMap, selectedPin: selectedPin, userLocation: userLocation)
+                            showingMap: $showingMap, showsMapHint: $showsMapHint,
+                            selectedPin: selectedPin, userLocation: userLocation)
     }
 
     // MARK: - Selection
@@ -403,6 +405,7 @@ struct ItemsBottomControls: View {
     @Binding var filter: CategoryKind?
     let available: [CategoryKind]
     @Binding var showingMap: Bool
+    @Binding var showsMapHint: Bool
     let selectedPin: UUID?
     let userLocation: CLLocation?
 
@@ -430,10 +433,11 @@ struct ItemsBottomControls: View {
             if placesOnly {
                 // Always shown selected; tapping it switches between list and map.
                 CategoryFilterBar(selection: .constant(.location), available: available,
-                                  showingMap: $showingMap, showsAll: false)
+                                  showingMap: $showingMap, showsAll: false, showsMapHint: $showsMapHint)
             } else if available.count > 1 {
                 CategoryFilterBar(selection: $filter, available: available,
-                                  showingMap: Self.showsMap(filter: filter, available: available) ? $showingMap : nil)
+                                  showingMap: Self.showsMap(filter: filter, available: available) ? $showingMap : nil,
+                                  showsMapHint: $showsMapHint)
             }
         }
         .animation(.easeOut(duration: 0.2), value: selectedPin)

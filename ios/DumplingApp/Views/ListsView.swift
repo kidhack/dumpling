@@ -135,6 +135,7 @@ struct ListDetailView: View {
     @State private var filter: CategoryKind?
     @State private var showingMap = false
     @State private var selectedPin: UUID?
+    @State private var showsMapHint = false
     @State private var userLocation: CLLocation?
     /// The big title has scrolled under the header, so the small centered one shows instead.
     @State private var titleScrolledAway = false
@@ -240,7 +241,8 @@ struct ListDetailView: View {
 
     private var bottomControls: some View {
         ItemsBottomControls(visible: visible, filter: $filter, available: availableFilters,
-                            showingMap: $showingMap, selectedPin: selectedPin, userLocation: userLocation)
+                            showingMap: $showingMap, showsMapHint: $showsMapHint,
+                            selectedPin: selectedPin, userLocation: userLocation)
     }
 
     /// "20 items", plus who it's shared with when it is.
