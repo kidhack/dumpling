@@ -180,8 +180,8 @@ struct ItemsListView: View {
             }
             .animation(.easeInOut(duration: 0.25), value: showingMap)
             // The map is only for places: any other filter, or leaving the tab, goes back to the list.
-            .onChange(of: filter) { _, new in
-                if new != .location { showingMap = false }
+            .onChange(of: ItemsBottomControls.showsMap(filter: filter, available: availableFilters)) { _, shows in
+                if !shows { showingMap = false }
             }
             .onChange(of: isActiveTab) { _, active in
                 if !active { showingMap = false }
@@ -419,18 +419,28 @@ struct ItemsBottomControls: View {
         return CategoryKind.allCases.filter { present.contains($0.rawValue) || $0 == filter }
     }
 
+    /// The map is for places: with the Location filter on, or with nothing but places to show.
+    static func showsMap(filter: CategoryKind?, available: [CategoryKind]) -> Bool {
+        filter == .location || (filter == nil && available == [.location])
+    }
+
     var body: some View {
+        // With a single category, All and that category show the same items, so the row is left out.
+        let showsFilters = available.count > 1
         VStack(spacing: 12) {
             if showingMap, let pin = ItemsMapView.pins(for: visible).first(where: { $0.id == selectedPin }) {
                 PlaceCard(item: pin.item, coordinate: pin.coordinate, userLocation: userLocation)
                     .padding(.horizontal, 16)
                     .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
             }
-            if filter == .location {
+            if Self.showsMap(filter: filter, available: available) {
                 MapListToggle(showingMap: $showingMap)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    .padding(.bottom, showsFilters ? 0 : CategoryFilterBar.bottomPadding)
             }
-            CategoryFilterBar(selection: $filter, available: available)
+            if showsFilters {
+                CategoryFilterBar(selection: $filter, available: available)
+            }
         }
         .animation(.easeOut(duration: 0.2), value: selectedPin)
         .animation(.snappy(duration: 0.2), value: filter)

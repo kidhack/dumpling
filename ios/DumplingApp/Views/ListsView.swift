@@ -140,6 +140,8 @@ struct ListDetailView: View {
 
     private var items: [Item] { list.itemsArray.sorted { $0.timestamp > $1.timestamp } }
 
+    private var availableFilters: [CategoryKind] { ItemsBottomControls.filters(for: items, keeping: filter) }
+
     private var visible: [Item] {
         guard let filter else { return items }
         return items.filter { $0.category == filter.rawValue }
@@ -185,8 +187,8 @@ struct ListDetailView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: showingMap)
         // The map is only for places: any other filter, or leaving the tab, goes back to the list.
-        .onChange(of: filter) { _, new in
-            if new != .location { showingMap = false }
+        .onChange(of: ItemsBottomControls.showsMap(filter: filter, available: availableFilters)) { _, shows in
+            if !shows { showingMap = false }
         }
         .onChange(of: isActiveTab) { _, active in
             if !active { showingMap = false }
@@ -210,8 +212,7 @@ struct ListDetailView: View {
     }
 
     private var bottomControls: some View {
-        ItemsBottomControls(visible: visible, filter: $filter,
-                            available: ItemsBottomControls.filters(for: items, keeping: filter),
+        ItemsBottomControls(visible: visible, filter: $filter, available: availableFilters,
                             showingMap: $showingMap, selectedPin: selectedPin, userLocation: userLocation)
     }
 
