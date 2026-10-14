@@ -29,16 +29,15 @@ struct ItemDetailView: View {
     var body: some View {
         Form {
             Section {
-                if !item.isFiled {
-                    TextField("Title", text: optional(\.title).doneOnReturn, axis: .vertical)
-                        .submitLabel(.done)
-                        .font(.title2.weight(.semibold))
-                }
+                TextField("Title", text: optional(\.title).doneOnReturn, axis: .vertical)
+                    .submitLabel(.done)
+                    .font(.title2.weight(.semibold))
+                    .onSubmit(renameFiledEntry)
                 sharedRows
+                // Filed items stay editable; their date lives in Calendar or Reminders (the filed row opens it).
+                detailRows
                 if item.isFiled {
                     filedRows
-                } else {
-                    detailRows
                 }
                 listRow
                 // Only for places: other items can keep a position from an earlier category.
@@ -86,7 +85,7 @@ struct ItemDetailView: View {
                     Text(item.displayTitle)
                         .font(.headline)
                         .lineLimit(1)
-                        .opacity(item.isFiled || titleScrolledAway ? 1 : 0)
+                        .opacity(titleScrolledAway ? 1 : 0)
                         .animation(.easeOut(duration: 0.15), value: titleScrolledAway)
                 }
             } trailing: {
@@ -107,7 +106,10 @@ struct ItemDetailView: View {
         .navigationTitle(item.displayTitle)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { hasLink = item.contentURL != nil }
-        .onDisappear { try? modelContext.save() }
+        .onDisappear {
+            renameFiledEntry()
+            try? modelContext.save()
+        }
         .task { await locateIfNeeded() }
         // Pull down to sort the item again from scratch (filed items just reload their event or reminder).
         .refreshable { await resort() }
@@ -139,6 +141,12 @@ struct ItemDetailView: View {
         .accessibilityLabel(item.list.map { "List: \($0.name)" } ?? "In \(homeSection.rawValue)")
         .accessibilityHint("Moves it to a list")
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+    }
+
+    /// A filed item's title was edited: rename its event or reminder to match.
+    private func renameFiledEntry() {
+        guard item.isFiled, let id = item.eventKitID else { return }
+        filer.rename(id: id, to: item.displayTitle)
     }
 
     private var homeSection: ItemsSection { item.isArchived ? .archived : item.isFiled ? .filed : .inbox }
@@ -262,7 +270,6 @@ struct ItemDetailView: View {
             TextField("Note", text: optional(\.userNote).doneOnReturn, axis: .vertical)
                 .submitLabel(.done)
                 .lineLimit(1...5)
-                .disabled(item.isFiled)
         }
     }
 
@@ -330,7 +337,7 @@ struct ItemDetailView: View {
             .accessibilityLabel("Kind: \(mediaKind.label)")
             .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
         }
-        if category == .event || category == .task {
+        if (category == .event || category == .task) && !item.isFiled {
             iconRow("calendar") {
                 Toggle(category == .event ? "Date" : "Due Date", isOn: hasDate)
             }

@@ -1,8 +1,11 @@
 import EventKit
+import OSLog
 import Foundation
 
 /// Writes sorted items into Reminders and Calendar (which sync to the Mac through iCloud),
 /// reusing an existing event or reminder instead of adding a duplicate.
+private let logger = Logger(subsystem: "com.kidhack.dumpling", category: "Filer")
+
 @MainActor
 final class Filer {
     static let remindersListName = "Dumpling"
@@ -138,6 +141,21 @@ final class Filer {
     /// The live event or reminder an item was filed as, or nil if it was deleted.
     func calendarItem(id: String) -> EKCalendarItem? {
         store.calendarItem(withIdentifier: id)
+    }
+
+    /// Renames the event or reminder an item was filed as, when the user renames the item.
+    func rename(id: String, to title: String) {
+        guard let entry = store.calendarItem(withIdentifier: id), entry.title != title else { return }
+        entry.title = title
+        do {
+            if let event = entry as? EKEvent {
+                try store.save(event, span: .thisEvent, commit: true)
+            } else if let reminder = entry as? EKReminder {
+                try store.save(reminder, commit: true)
+            }
+        } catch {
+            logger.error("Renaming filed entry failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // MARK: - Matching
