@@ -142,6 +142,14 @@ struct ItemDetailView: View {
             return " by \(name)"
         }
         return VStack(alignment: .leading, spacing: 4) {
+            // The original shared text, as a record of what came in. It usually became the title, so only when
+            // it says more.
+            if let text = item.contentText, Filer.normalized(text) != Filer.normalized(item.title ?? "") {
+                Text("“\(text)”")
+                    .lineLimit(6)
+                    .textSelection(.enabled)
+                    .padding(.bottom, 4)
+            }
             Text("Added\(by(item.createdByID)) · \(item.timestamp.formatted(date: .abbreviated, time: .shortened))")
             if let edited = item.modifiedAt, edited.timeIntervalSince(item.timestamp) > 60 {
                 Text("Edited\(by(item.modifiedByID)) · \(edited.formatted(.relative(presentation: .named)))")
@@ -235,12 +243,6 @@ struct ItemDetailView: View {
                     .buttonStyle(.borderless)
                     .accessibilityLabel("Open Link")
                 }
-            }
-        }
-        // Shared text usually became the title; only show it when it says more.
-        if let text = item.contentText, Filer.normalized(text) != Filer.normalized(item.title ?? "") {
-            iconRow("text.alignleft") {
-                Text(text).textSelection(.enabled)
             }
         }
         iconRow("note.text") {
