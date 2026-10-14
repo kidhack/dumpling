@@ -26,9 +26,6 @@ struct PlaceMapRow: View {
     }
 
     private func openInMaps() {
-        let item = MKMapItem(location: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
-                             address: address.flatMap { MKAddress(fullAddress: $0, shortAddress: nil) })
-        item.name = name
-        item.openInMaps(launchOptions: nil)
+        Task { await Places.openInMaps(name: name, address: address, coordinate: coordinate) }
     }
 }

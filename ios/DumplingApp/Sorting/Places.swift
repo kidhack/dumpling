@@ -83,6 +83,51 @@ enum Places {
         )
     }
 
+    #if os(iOS)
+    /// Opens a saved place in Apple Maps on the business's own page (hours, photos, reviews) rather than a dropped
+    /// pin: the place is searched by name around its pin, and the closest match within 300 m is opened. With no
+    /// match, the pin opens as before.
+    @MainActor
+    static func openInMaps(name: String, address: String?, coordinate: CLLocationCoordinate2D) async {
+        let pin = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = Sorter.placeName(name)
+        request.region = MKCoordinateRegion(center: coordinate, latitudinalMeters: 2_000, longitudinalMeters: 2_000)
+        request.regionPriority = .required
+        request.resultTypes = .pointOfInterest
+        let matches = (try? await MKLocalSearch(request: request).start().mapItems) ?? []
+        if let business = matches.min(by: { $0.location.distance(from: pin) < $1.location.distance(from: pin) }),
+           business.location.distance(from: pin) < 300 {
+            business.openInMaps(launchOptions: nil)
+            return
+        }
+        // The name as saved may not match Apple's ("Tommy Dinic's Roast Pork" vs "Tommy DiNic's"): try the
+        // businesses right by the pin that share a distinctive word with it.
+        if let business = await nearbyBusiness(named: name, at: pin) {
+            business.openInMaps(launchOptions: nil)
+            return
+        }
+        let dropped = MKMapItem(location: pin, address: address.flatMap { MKAddress(fullAddress: $0, shortAddress: nil) })
+        dropped.name = name
+        dropped.openInMaps(launchOptions: nil)
+    }
+    #endif
+
+    /// The closest business within 150 m of `pin` whose name shares a word of 4+ letters with `name`.
+    @MainActor
+    static func nearbyBusiness(named name: String, at pin: CLLocation) async -> MKMapItem? {
+        func words(_ text: String) -> Set<String> {
+            Set(text.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { $0.count >= 4 })
+        }
+        let wanted = words(Sorter.placeName(name))
+        guard !wanted.isEmpty else { return nil }
+        let request = MKLocalPointsOfInterestRequest(center: pin.coordinate, radius: 150)
+        let nearby = (try? await MKLocalSearch(request: request).start().mapItems) ?? []
+        return nearby
+            .filter { !words($0.name ?? "").isDisjoint(with: wanted) }
+            .min { $0.location.distance(from: pin) < $1.location.distance(from: pin) }
+    }
+
     /// Whether an address names its city. "1206 Frankford avenue" doesn't, so geocoding it alone guesses
     /// which Frankford Avenue.
     static func hasCity(_ address: String) -> Bool {

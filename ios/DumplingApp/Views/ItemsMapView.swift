@@ -189,9 +189,6 @@ struct PlaceCard: View {
     }
 
     private func openInMaps() {
-        let mapItem = MKMapItem(location: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
-                                address: item.location.flatMap { MKAddress(fullAddress: $0, shortAddress: nil) })
-        mapItem.name = item.displayTitle
-        mapItem.openInMaps(launchOptions: nil)
+        Task { await Places.openInMaps(name: item.displayTitle, address: item.location, coordinate: coordinate) }
     }
 }
