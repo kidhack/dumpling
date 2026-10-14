@@ -1,8 +1,10 @@
 import SwiftUI
 import CoreData
 
-/// Adds an item without the share sheet. It's sorted like a shared item.
+/// Adds an item without the share sheet. It's sorted like a shared item. With `list`, it goes into that list.
 struct NewItemView: View {
+    var list: ItemList?
+
     @Environment(\.managedObjectContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
     @Environment(\.dismiss) private var dismiss
@@ -28,7 +30,7 @@ struct NewItemView: View {
                     CategoryButtons(selection: $category)
                 }
             }
-            .navigationTitle("New Item")
+            .navigationTitle(list.map { "Add to \($0.name)" } ?? "New Item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -56,7 +58,14 @@ struct NewItemView: View {
         Persistence.shared.assignToPrivateStore(item)
         try? modelContext.save()
         dismiss()
-        Task { await pipeline.refresh(modelContext) }
+        Task {
+            // Into the list's store or share zone, as when moving an item there.
+            if let list {
+                await Sharing.move(item, to: list, in: modelContext)
+                try? modelContext.save()
+            }
+            await pipeline.refresh(modelContext)
+        }
     }
 
     /// The text is treated as a link only if it's nothing but one (e.g. "example.com/page").

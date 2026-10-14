@@ -194,6 +194,8 @@ struct ListDetailView: View {
             }
         }
         .cardList()
+        // Pull down past the top to add an item to this list, as in the Inbox (not on lists shared view-only).
+        .pullToAdd(enabled: !showingMap && Sharing.canEdit(list), list: list)
         .onScrollGeometryChange(for: Bool.self) { geo in
             geo.contentOffset.y + geo.contentInsets.top > 48
         } action: { _, away in
@@ -230,7 +232,7 @@ struct ListDetailView: View {
                     ContentUnavailableView("No \(filter.label) Items", systemImage: filter.systemImage)
                 } else {
                     ContentUnavailableView("Empty List", systemImage: "list.bullet",
-                                           description: Text("Swipe right on an Inbox item, or open it, to move it here. Items removed from a list go back to the Inbox."))
+                                           description: Text("Pull down to add an item, or swipe right on an Inbox item to move it here. Items removed from a list go back to the Inbox."))
                 }
             }
         }
