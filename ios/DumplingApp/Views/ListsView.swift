@@ -1,17 +1,16 @@
 import SwiftUI
-import SwiftData
+import CoreData
 
 /// The Lists tab: user-made groups of items, like everything for a trip.
 struct ListsView: View {
     /// Bumped when the user taps the Lists tab while on it; scrolls back to the top.
     var resetToken = 0
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
-    @Query(sort: \ItemList.createdAt) private var lists: [ItemList]
+    @FetchRequest(sortDescriptors: [SortDescriptor(\ItemList.createdAt)]) private var lists: FetchedResults<ItemList>
 
-    @State private var showingNewList = false
-    @State private var renaming: ItemList?
-    @State private var showingRename = false
+    /// The list being edited; .some(nil) creates a new one.
+    @State private var editing: EditTarget?
 
     var body: some View {
         NavigationStack {
@@ -26,10 +25,11 @@ struct ListsView: View {
                         .contextMenu { listActions(for: list) }
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) { delete(list) } label: {
-                                Label("Delete", systemImage: "trash")
+                                Label(Sharing.isOwner(of: list) ? "Delete" : "Leave",
+                                      systemImage: Sharing.isOwner(of: list) ? "trash" : "rectangle.portrait.and.arrow.right")
                             }
-                            Button { startRenaming(list) } label: {
-                                Label("Rename", systemImage: "pencil")
+                            Button { editing = EditTarget(list: list) } label: {
+                                Label("Details", systemImage: "info.circle")
                             }
                             .tint(.gray)
                         }
@@ -42,7 +42,7 @@ struct ListsView: View {
                     EmptyView()
                 } trailing: {
                     Button {
-                        showingNewList = true
+                        editing = EditTarget(list: nil)
                     } label: {
                         Image(systemName: "plus")
                             .font(.title3.weight(.semibold))
@@ -59,7 +59,7 @@ struct ListsView: View {
                     } description: {
                         Text("Group items into lists, like everything for an upcoming trip.")
                     } actions: {
-                        Button("New List") { showingNewList = true }
+                        Button("New List") { editing = EditTarget(list: nil) }
                             .buttonStyle(.borderedProminent)
                     }
                 }
@@ -68,14 +68,7 @@ struct ListsView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: ItemList.self) { ListDetailView(list: $0) }
             .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: pipeline.filer) }
-            .listNameAlert("New List", isPresented: $showingNewList) { name in
-                modelContext.insert(ItemList(name: name))
-                try? modelContext.save()
-            }
-            .listNameAlert("Rename List", isPresented: $showingRename, initialName: renaming?.name ?? "") { name in
-                renaming?.name = name
-                try? modelContext.save()
-            }
+            .sheet(item: $editing) { target in EditListSheet(list: target.list) }
             .onChange(of: resetToken) { _, _ in
                 guard let first = lists.first?.id else { return }
                 withAnimation(.snappy) { proxy.scrollTo(first, anchor: .top) }
@@ -86,34 +79,43 @@ struct ListsView: View {
 
     @ViewBuilder
     private func listActions(for list: ItemList) -> some View {
-        Button("Rename", systemImage: "pencil") { startRenaming(list) }
-        Button("Delete", systemImage: "trash", role: .destructive) { delete(list) }
+        if Sharing.isOwner(of: list) {
+            Button(Sharing.isShared(list) ? "Manage Sharing…" : "Share List…", systemImage: "person.2") {
+                Task { await ShareController.shared.present(list) }
+            }
+            Button("List Details…", systemImage: "info.circle") { editing = EditTarget(list: list) }
+            Button("Delete", systemImage: "trash", role: .destructive) { delete(list) }
+        } else {
+            Button("List Details…", systemImage: "info.circle") { editing = EditTarget(list: list) }
+            Button("Leave List", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { delete(list) }
+        }
     }
 
-    private func startRenaming(_ list: ItemList) {
-        renaming = list
-        showingRename = true
-    }
 
     private func delete(_ list: ItemList) {
-        modelContext.delete(list)
-        try? modelContext.save()
+        // Shared lists: the owner's items come back unlisted; someone invited leaves instead.
+        Task { await Sharing.delete(list, in: modelContext) }
     }
 }
 
 private struct ListRow: View {
-    let list: ItemList
+    /// Observed so edits (name, icon, color) show without the Lists tab having to reload.
+    @ObservedObject var list: ItemList
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "list.bullet")
-                .font(.title3)
-                .foregroundStyle(.teal)
+            ListIcon(list: list, size: 28)
                 .frame(width: 28, height: 22)
             Text(list.name)
                 .lineLimit(1)
+            if Sharing.isShared(list) {
+                Image(systemName: "person.2.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Shared")
+            }
             Spacer()
-            Text("\(list.items?.count ?? 0)")
+            Text("\(list.itemCount)")
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         }
@@ -123,12 +125,12 @@ private struct ListRow: View {
 
 /// One list's items, newest first like the other tabs.
 struct ListDetailView: View {
-    @Bindable var list: ItemList
-    @Environment(\.modelContext) private var modelContext
+    @ObservedObject var list: ItemList
+    @Environment(\.managedObjectContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @State private var showingRename = false
+    @State private var showingEdit = false
 
-    private var items: [Item] { (list.items ?? []).sorted { $0.timestamp > $1.timestamp } }
+    private var items: [Item] { list.itemsArray.sorted { $0.timestamp > $1.timestamp } }
 
     var body: some View {
         List {
@@ -139,8 +141,10 @@ struct ListDetailView: View {
                     }
                     .swipeActions(edge: .trailing) {
                         Button {
-                            item.list = nil
-                            try? modelContext.save()
+                            Task {
+                                await Sharing.move(item, to: nil, in: modelContext)
+                                try? modelContext.save()
+                            }
                         } label: {
                             Label("Remove", systemImage: "minus.circle")
                         }
@@ -152,30 +156,53 @@ struct ListDetailView: View {
         .listSectionSpacing(10)
         .screenHeader {
             ScreenHeader {
-                Button {
-                    dismiss()
-                } label: {
-                    HStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button {
+                        dismiss()
+                    } label: {
                         Image(systemName: "chevron.left")
                             .font(.title3.weight(.semibold))
-                        Text(list.name)
-                            .font(.title2.bold())
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
+                            .frame(minWidth: 28, minHeight: 44)
+                            .contentShape(.rect)
                     }
-                    .frame(minHeight: 44)
-                    .contentShape(.rect)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Back to Lists")
+                    // Tapping the list's name opens its details.
+                    Button {
+                        showingEdit = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            ListIcon(list: list, size: 30)
+                            Text(list.name)
+                                .font(.title2.bold())
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(list.name), List Details")
                 }
-                .buttonStyle(.plain)
                 .padding(.leading, -8)
-                .accessibilityLabel("Back to Lists")
             } trailing: {
                 Menu {
-                    Button("Rename", systemImage: "pencil") { showingRename = true }
-                    Button("Delete List", systemImage: "trash", role: .destructive) {
-                        modelContext.delete(list)
-                        try? modelContext.save()
-                        dismiss()
+                    if Sharing.isOwner(of: list) {
+                        Button(Sharing.isShared(list) ? "Manage Sharing…" : "Share List…",
+                               systemImage: Sharing.isShared(list) ? "person.2" : "person.crop.circle.badge.plus") {
+                            Task { await ShareController.shared.present(list) }
+                        }
+                        Button("List Details…", systemImage: "info.circle") { showingEdit = true }
+                        Button("Delete List", systemImage: "trash", role: .destructive) {
+                            dismiss()
+                            Task { await Sharing.delete(list, in: modelContext) }
+                        }
+                    } else {
+                        Button("List Details…", systemImage: "info.circle") { showingEdit = true }
+                        Button("Leave List", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                            dismiss()
+                            Task { await Sharing.leave(list) }
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -194,9 +221,12 @@ struct ListDetailView: View {
         }
         .navigationTitle(list.name)
         .toolbar(.hidden, for: .navigationBar)
-        .listNameAlert("Rename List", isPresented: $showingRename, initialName: list.name) { name in
-            list.name = name
-            try? modelContext.save()
-        }
+        .sheet(isPresented: $showingEdit) { EditListSheet(list: list, onLeave: { dismiss() }) }
     }
+}
+
+/// Which list the Edit List sheet is for; `list == nil` creates one.
+struct EditTarget: Identifiable {
+    let list: ItemList?
+    var id: String { list?.objectID.uriRepresentation().absoluteString ?? "new" }
 }

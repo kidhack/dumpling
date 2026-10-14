@@ -2,7 +2,7 @@ import Foundation
 import FoundationModels
 import Observation
 import OSLog
-import SwiftData
+import CoreData
 
 private let logger = Logger(subsystem: "com.kidhack.dumpling", category: "Pipeline")
 
@@ -15,13 +15,13 @@ final class ItemPipeline {
     private(set) var modelUnavailable: SystemLanguageModel.Availability.UnavailableReason?
     private var isRunning = false
 
-    func refresh(_ context: ModelContext) async {
+    func refresh(_ context: NSManagedObjectContext) async {
         guard !isRunning else { return }
         isRunning = true
         defer { isRunning = false }
 
         importQueue(into: context)
-        let items = (try? context.fetch(FetchDescriptor<Item>(sortBy: [SortDescriptor(\.timestamp)]))) ?? []
+        let items = Item.all(in: context)
         resortMapLinksOnce(items)
         modelUnavailable = await Processor.processPending(items, filer: filer)
         try? context.save()
@@ -46,14 +46,14 @@ final class ItemPipeline {
         UserDefaults.standard.set(true, forKey: key)
     }
 
-    private func importQueue(into context: ModelContext) {
+    private func importQueue(into context: NSManagedObjectContext) {
         let pending = AppGroup.dequeueAll()
         for p in pending {
-            let item = Item(id: p.id, contentURL: p.contentURL, contentText: p.contentText,
+            let item = Item(context: context, id: p.id, contentURL: p.contentURL, contentText: p.contentText,
                             sourceApp: p.sourceApp, userNote: p.userNote, quickTag: p.quickTag)
             item.timestamp = p.timestamp
             item.syncedAt = p.syncedAt
-            context.insert(item)
+            Persistence.shared.assignToPrivateStore(item)
         }
         if !pending.isEmpty { try? context.save() }
     }

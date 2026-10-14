@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="1" systemVersion="1" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="YES" userDefinedModelVersionIdentifier="">
+    <entity name="Item" representedClassName="DumplingItem" syncable="YES">
+        <attribute name="archivedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="category" optional="YES" attributeType="String"/>
+        <attribute name="contentText" optional="YES" attributeType="String"/>
+        <attribute name="contentURL" optional="YES" attributeType="String"/>
+        <attribute name="eventKitID" optional="YES" attributeType="String"/>
+        <attribute name="filedTo" optional="YES" attributeType="String"/>
+        <attribute name="id" attributeType="UUID" defaultValueString="00000000-0000-0000-0000-000000000000" usesScalarValueType="NO"/>
+        <attribute name="isAllDay" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="isHearted" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="latitude" optional="YES" attributeType="Double" usesScalarValueType="NO"/>
+        <attribute name="location" optional="YES" attributeType="String"/>
+        <attribute name="longitude" optional="YES" attributeType="Double" usesScalarValueType="NO"/>
+        <attribute name="otherHearts" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="quickTag" optional="YES" attributeType="String"/>
+        <attribute name="relevantDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="sortError" optional="YES" attributeType="String"/>
+        <attribute name="sourceApp" optional="YES" attributeType="String"/>
+        <attribute name="status" attributeType="String" defaultValueString="pending"/>
+        <attribute name="syncedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="timestamp" attributeType="Date" defaultDateTimeInterval="0" usesScalarValueType="NO"/>
+        <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="userNote" optional="YES" attributeType="String"/>
+        <relationship name="hearts" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Heart" inverseName="item" inverseEntity="Heart"/>
+        <relationship name="list" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ItemList" inverseName="items" inverseEntity="ItemList"/>
+    </entity>
+    <entity name="Heart" representedClassName="DumplingHeart" syncable="YES">
+        <attribute name="createdAt" attributeType="Date" defaultDateTimeInterval="0" usesScalarValueType="NO"/>
+        <attribute name="id" attributeType="UUID" defaultValueString="00000000-0000-0000-0000-000000000000" usesScalarValueType="NO"/>
+        <attribute name="userID" attributeType="String" defaultValueString=""/>
+        <relationship name="item" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Item" inverseName="hearts" inverseEntity="Item"/>
+    </entity>
+    <entity name="ItemList" representedClassName="DumplingList" syncable="YES">
+        <attribute name="colorName" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" attributeType="Date" defaultDateTimeInterval="0" usesScalarValueType="NO"/>
+        <attribute name="id" attributeType="UUID" defaultValueString="00000000-0000-0000-0000-000000000000" usesScalarValueType="NO"/>
+        <attribute name="name" attributeType="String" defaultValueString=""/>
+        <attribute name="symbolName" optional="YES" attributeType="String"/>
+        <relationship name="items" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Item" inverseName="list" inverseEntity="Item"/>
+    </entity>
+    <entity name="RoutingRule" syncable="YES">
+        <attribute name="action" attributeType="String" defaultValueString=""/>
+        <attribute name="contentType" attributeType="String" defaultValueString=""/>
+        <attribute name="createdAt" attributeType="Date" defaultDateTimeInterval="0" usesScalarValueType="NO"/>
+        <attribute name="id" attributeType="UUID" defaultValueString="00000000-0000-0000-0000-000000000000" usesScalarValueType="NO"/>
+        <attribute name="isEnabled" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="matchCount" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="pattern" attributeType="String" defaultValueString=""/>
+        <attribute name="patternType" attributeType="String" defaultValueString="substring"/>
+        <attribute name="target" attributeType="String" defaultValueString=""/>
+    </entity>
+</model>

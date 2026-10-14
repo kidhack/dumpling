@@ -1,0 +1,360 @@
+# List icons for Dumpling. "## Section", then "symbol: search words". Run generate.py to verify and emit Swift.
+## General
+list.bullet: list
+checklist: todo tasks checklist
+list.star: favorites best top
+star.fill: favorite star
+heart.fill: love like heart
+bookmark.fill: saved read later bookmark
+flag.fill: important flag
+tag.fill: label tag
+pin.fill: pinned pin
+link: link url web
+paperclip: attachment clip
+archivebox.fill: archive storage box
+tray.full.fill: inbox tray
+square.grid.2x2.fill: collection grid
+sparkle: new spark
+rectangle.stack.fill: stack collection
+checkmark.seal.fill: verified done approved
+exclamationmark.triangle.fill: warning urgent
+questionmark.circle.fill: maybe questions
+infinity: forever always
+quote.opening: quotes sayings
+## Travel
+airplane: flight plane travel trip
+airplane.departure: departure flight
+airplane.arrival: arrival flight
+car.fill: car drive road trip
+car.side.fill: car drive
+tram.fill: train tram transit subway
+train.side.front.car: train rail
+bus.fill: bus transit
+ferry.fill: ferry boat
+sailboat.fill: sail boat sailing
+bicycle: bike cycling
+scooter: scooter
+figure.walk: walk walking
+suitcase.fill: luggage packing trip vacation
+suitcase.rolling.fill: luggage suitcase
+bed.double.fill: hotel stay sleep bed lodging
+map.fill: map
+map.circle.fill: map
+mappin.and.ellipse: location place pin
+mappin.circle.fill: location pin
+location.fill: nearby location
+signpost.right.fill: directions signpost
+binoculars.fill: sightseeing explore tour
+globe.americas.fill: world travel international
+globe.europe.africa.fill: europe world
+globe.asia.australia.fill: asia world
+mountain.2.fill: mountains hike
+beach.umbrella.fill: beach vacation summer
+tent.fill: camping tent
+fuelpump.fill: gas fuel
+parkingsign.circle.fill: parking
+cablecar.fill: cable car gondola
+car.2.fill: carpool rideshare
+bus.doubledecker.fill: tour bus
+airplane.circle.fill: flights
+ev.charger.fill: charging electric
+road.lanes: road trip highway
+## Places
+house.fill: home house
+house.lodge.fill: cabin lodge
+building.2.fill: city office buildings
+building.columns.fill: museum bank government
+building.fill: apartment building
+storefront.fill: shop store
+music.note.house.fill: venue music club
+figure.pool.swim: pool swimming
+tree.fill: park nature tree
+house.and.flag.fill: home base
+cross.circle.fill: hospital clinic
+tent.2.fill: campsite
+building.2.crop.circle.fill: city
+## Food and drink
+fork.knife: restaurant food dinner eat
+fork.knife.circle.fill: restaurant food
+cup.and.saucer.fill: cafe tea
+cup.and.heat.waves.fill: coffee cafe hot
+mug.fill: mug coffee
+wineglass.fill: wine bar drinks
+waterbottle.fill: water drink
+takeoutbag.and.cup.and.straw.fill: takeout fast food
+frying.pan.fill: recipes cooking kitchen
+birthday.cake.fill: cake dessert bakery birthday
+carrot.fill: groceries vegetables produce
+fish.fill: seafood sushi fish
+popcorn.fill: snacks movies popcorn
+cooktop.fill: kitchen stove cook
+refrigerator.fill: fridge groceries
+oven.fill: oven baking
+microwave.fill: microwave
+dishwasher.fill: dishes
+sink.fill: kitchen sink
+## Shopping
+cart.fill: groceries shopping cart
+bag.fill: shopping bag
+basket.fill: basket shopping
+gift.fill: gifts presents
+tshirt.fill: clothes fashion shirt
+shoe.fill: shoes sneakers
+eyeglasses: glasses
+handbag.fill: bag purse fashion
+creditcard.fill: payment card
+dollarsign.circle.fill: money budget
+banknote.fill: cash money
+shippingbox.fill: package delivery
+giftcard.fill: gift card
+percent: sale discount deal
+barcode: product barcode
+cart.badge.plus: add to cart wishlist
+bag.badge.plus: wishlist
+tag.circle.fill: price tag
+## Music and shows
+music.note: music song
+music.quarternote.3: music songs
+music.note.list: playlist music
+headphones: headphones listen
+hifispeaker.fill: speaker audio
+guitars.fill: concert band guitar
+pianokeys: piano keys
+music.mic: karaoke singing
+mic.fill: podcast mic
+radio.fill: radio
+tv.fill: tv shows television
+sparkles.tv.fill: streaming shows
+play.rectangle.fill: videos youtube watch
+film.fill: movies film cinema
+theatermasks.fill: theater drama
+theatermask.and.paintbrush.fill: arts culture
+ticket.fill: tickets event
+party.popper.fill: party celebration
+balloon.fill: party balloons
+fireworks: celebration fireworks
+speaker.wave.3.fill: loud audio sound
+film.stack.fill: movies films
+movieclapper.fill: film production
+photo.stack.fill: albums
+## Games and play
+gamecontroller.fill: video games
+dice.fill: board games dice
+puzzlepiece.fill: puzzle
+suit.club.fill: cards poker
+suit.heart.fill: cards
+suit.spade.fill: cards
+die.face.5.fill: dice
+flag.checkered: racing finish
+teddybear.fill: toys kids
+## Reading and learning
+book.fill: book reading
+book.closed.fill: book
+text.book.closed.fill: reading book
+books.vertical.fill: library books
+newspaper.fill: news articles
+magazine.fill: magazine
+graduationcap.fill: school course study
+backpack.fill: school backpack
+character.book.closed.fill: language dictionary
+note.text: notes
+doc.text.fill: documents doc
+bookmark.circle.fill: saved
+text.quote: quotes
+list.bullet.clipboard.fill: clipboard notes
+studentdesk: class desk
+abc: alphabet language
+## Creative
+pencil: writing pencil
+scribble: sketch drawing
+paintbrush.fill: art paint
+paintpalette.fill: art palette
+camera.fill: photography camera
+photo.fill: photos pictures
+camera.macro: flowers macro
+paintbrush.pointed.fill: brush art
+pencil.tip: drawing
+camera.aperture: photography lens
+scissors: crafts cut
+eyedropper.full: color design
+## Ideas and tech
+lightbulb.fill: ideas idea
+brain.head.profile: thinking brain
+sparkles: inspiration magic
+wand.and.stars: magic
+laptopcomputer: computer laptop work
+desktopcomputer: computer desktop
+iphone: phone apps
+applewatch: watch
+keyboard.fill: keyboard typing
+cpu.fill: tech chip
+terminal.fill: code terminal dev
+chevron.left.forwardslash.chevron.right: code dev
+app.fill: apps app
+wifi: internet wifi
+gearshape.fill: settings gear
+server.rack: servers dev
+externaldrive.fill: storage drive
+printer.fill: print
+antenna.radiowaves.left.and.right: radio signal
+qrcode: qr code
+globe: web internet world
+icloud.fill: cloud icloud
+## Sports and fitness
+sportscourt.fill: sports court
+soccerball: soccer football
+football.fill: american football
+basketball.fill: basketball
+baseball.fill: baseball
+tennisball.fill: tennis
+volleyball.fill: volleyball
+figure.run: running run
+figure.hiking: hiking hike
+figure.climbing: climbing
+figure.surfing: surfing surf
+figure.skiing.downhill: skiing ski
+figure.snowboarding: snowboarding
+figure.outdoor.cycle: cycling bike
+figure.golf: golf
+figure.socialdance: dance dancing
+figure.yoga: yoga
+dumbbell.fill: gym workout fitness
+trophy.fill: win trophy
+medal.fill: medal award
+figure.skating: skating
+figure.boxing: boxing
+figure.martial.arts: martial arts
+figure.tennis: tennis
+figure.bowling: bowling
+figure.fishing: fishing
+figure.archery: archery
+figure.equestrian.sports: horse riding
+skateboard.fill: skateboard
+skis.fill: skis ski
+snowboard.fill: snowboard
+figure.strengthtraining.traditional: weights strength
+figure.pilates: pilates
+figure.indoor.cycle: spin cycling
+## Health
+heart.text.square.fill: health
+cross.case.fill: first aid medical
+pills.fill: medicine pills
+stethoscope: doctor
+bandage.fill: bandage
+figure.mind.and.body: meditation mindfulness
+lungs.fill: breathing lungs
+syringe.fill: vaccine shot
+allergens.fill: allergies
+eye.fill: eyes vision
+ear.fill: hearing
+medical.thermometer.fill: fever thermometer
+figure.cooldown: stretch recovery
+## Nature and pets
+leaf.fill: plants garden leaf
+camera.macro.circle.fill: flower garden
+sun.horizon.fill: sunset sunrise
+water.waves: ocean sea water
+bird.fill: birds
+ladybug.fill: bugs nature
+tortoise.fill: turtle slow
+hare.fill: rabbit fast
+pawprint.fill: pets animals
+dog.fill: dog
+cat.fill: cat
+tree.circle.fill: trees forest
+leaf.circle.fill: eco green
+ant.fill: insects
+lizard.fill: reptiles
+mountain.2.circle.fill: mountains
+fish.circle.fill: aquarium fish
+## Weather
+sun.max.fill: sun sunny summer
+moon.fill: moon night
+moon.stars.fill: night stars
+cloud.fill: cloud
+cloud.rain.fill: rain
+cloud.bolt.fill: storm
+snowflake: snow winter cold
+wind: wind
+umbrella.fill: umbrella rain
+flame.fill: fire hot bbq
+drop.fill: water drop
+bolt.fill: energy power
+rainbow: rainbow
+cloud.sun.fill: partly cloudy
+cloud.snow.fill: snow
+tornado: tornado storm
+thermometer.sun.fill: heat hot
+thermometer.snowflake: cold freezing
+sunrise.fill: sunrise morning
+sunset.fill: sunset evening
+## Time and reminders
+calendar: calendar date
+calendar.badge.clock: upcoming schedule
+clock.fill: time clock
+alarm.fill: alarm wake
+hourglass: waiting time
+timer: timer
+stopwatch.fill: stopwatch
+bell.fill: reminders notifications
+calendar.circle.fill: calendar
+calendar.badge.plus: add event
+deskclock.fill: clock desk
+clock.arrow.circlepath: history recent
+repeat: recurring repeat
+## Messages
+envelope.fill: email mail
+phone.fill: call phone
+message.fill: text messages
+bubble.left.and.bubble.right.fill: chat conversation
+video.fill: video call facetime
+paperplane.fill: send
+megaphone.fill: announce
+## People
+person.fill: person me
+person.2.fill: friends people
+person.3.fill: group team
+figure.2.and.child.holdinghands: family kids
+figure.and.child.holdinghands: parent child
+stroller.fill: baby
+heart.circle.fill: love
+hand.thumbsup.fill: like approve
+hand.wave.fill: hello wave
+face.smiling.fill: happy fun
+crown.fill: vip king queen
+person.crop.circle.fill: profile account
+person.2.wave.2.fill: meetup community
+figure.wave: hello
+hands.clap.fill: applause congrats
+hand.raised.fill: volunteer raise hand
+figure.child: kids child
+## Work and home
+briefcase.fill: work job business
+folder.fill: folder files
+tray.2.fill: inbox work
+chart.bar.fill: stats chart
+chart.line.uptrend.xyaxis: growth trend
+target: goals target
+key.fill: keys
+lock.fill: private lock
+shield.fill: security safe
+sofa.fill: furniture couch
+lamp.desk.fill: lamp desk
+washer.fill: laundry
+trash.fill: cleanup trash
+wrench.and.screwdriver.fill: fix repair tools
+hammer.fill: diy build
+ruler.fill: measure ruler
+shower.fill: bathroom shower
+
+house.circle.fill: home
+toilet.fill: bathroom
+bathtub.fill: bath
+chair.fill: chair
+chair.lounge.fill: lounge relax
+lamp.floor.fill: lamp
+fan.fill: fan
+powerplug.fill: power plug
+door.left.hand.open: door
+list.clipboard.fill: checklist work
+signature: signature contracts

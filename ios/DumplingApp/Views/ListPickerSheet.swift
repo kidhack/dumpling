@@ -1,14 +1,14 @@
 import SwiftUI
-import SwiftData
+import CoreData
 
 /// Moves one or more items into a list, or out of their list. Can create a list on the way.
 struct ListPickerSheet: View {
     let items: [Item]
     var onDone: () -> Void = {}
 
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \ItemList.createdAt) private var lists: [ItemList]
+    @FetchRequest(sortDescriptors: [SortDescriptor(\ItemList.createdAt)]) private var lists: FetchedResults<ItemList>
     @State private var showingNewList = false
 
     var body: some View {
@@ -27,8 +27,9 @@ struct ListPickerSheet: View {
                             Button {
                                 move(to: list)
                             } label: {
-                                HStack {
-                                    Label(list.name, systemImage: "list.bullet")
+                                HStack(spacing: 12) {
+                                    ListIcon(list: list, size: 26)
+                                    Text(list.name)
                                         .foregroundStyle(.primary)
                                     Spacer()
                                     if items.allSatisfy({ $0.list?.id == list.id }) {
@@ -53,8 +54,8 @@ struct ListPickerSheet: View {
                 }
             }
             .listNameAlert("New List", isPresented: $showingNewList) { name in
-                let list = ItemList(name: name)
-                modelContext.insert(list)
+                let list = ItemList(context: modelContext, name: name)
+                Persistence.shared.assignToPrivateStore(list)
                 move(to: list)
             }
         }
@@ -62,10 +63,14 @@ struct ListPickerSheet: View {
     }
 
     private func move(to list: ItemList?) {
-        for item in items { item.list = list }
-        try? modelContext.save()
+        let moving = items
         onDone()
         dismiss()
+        // Shared lists may need items copied into their share zone, so this goes through Sharing.
+        Task {
+            for item in moving { await Sharing.move(item, to: list, in: modelContext) }
+            try? modelContext.save()
+        }
     }
 }
 

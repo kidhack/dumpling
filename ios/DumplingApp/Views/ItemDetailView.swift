@@ -2,15 +2,18 @@ import EventKit
 import EventKitUI
 import MapKit
 import SwiftUI
-import SwiftData
+import CoreData
 
 struct ItemDetailView: View {
-    @Bindable var item: Item
+    @ObservedObject var item: Item
     let filer: Filer
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var modelContext
     @State private var isFiling = false
     @State private var accessRefresh = 0
     @State private var showingListPicker = false
+    /// What the user just tapped, shown until the saved hearts catch up (iCloud can take a moment).
+    @State private var pendingHeart: Bool?
+    @State private var isSavingHeart = false
     @Environment(\.dismiss) private var dismiss
 
     private var category: ItemCategory {
@@ -34,8 +37,7 @@ struct ItemDetailView: View {
                     PlaceMapRow(name: item.displayTitle, address: item.location,
                                 coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
                 }
-                Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                    .foregroundStyle(.secondary)
+                attribution
             } footer: {
                 if let error = item.sortError, !item.isFiled {
                     Text(error)
@@ -67,20 +69,19 @@ struct ItemDetailView: View {
                 .padding(.leading, -8)
                 .accessibilityLabel("Back")
             } trailing: {
-                Button {
-                    item.isHearted.toggle()
-                    try? modelContext.save()
-                } label: {
-                    Image(systemName: item.isHearted ? "heart.fill" : "heart")
+                Button(action: toggleHeart) {
+                    HeartGlyph(mine: shownHeart, others: item.otherHeartCount,
+                               background: Color(.systemGroupedBackground))
                         .font(.title3)
-                        .foregroundStyle(item.isHearted ? .red : .primary)
-                        .contentTransition(.symbolEffect(.replace))
+                        .symbolEffect(.bounce, value: shownHeart)
+                        .scaleEffect(isSavingHeart ? 1.12 : 1)
+                        .animation(.spring(response: 0.25, dampingFraction: 0.5), value: shownHeart)
                         .frame(width: 44, height: 44)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .sensoryFeedback(.impact(weight: .light), trigger: item.isHearted)
-                .accessibilityLabel(item.isHearted ? "Remove Heart" : "Heart")
+                .sensoryFeedback(.impact(weight: .light), trigger: shownHeart)
+                .accessibilityLabel(shownHeart ? "Remove Heart" : "Heart")
             }
         }
         .navigationTitle(item.displayTitle)
@@ -97,11 +98,14 @@ struct ItemDetailView: View {
             showingListPicker = true
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "list.bullet")
-                    .foregroundStyle(.teal)
-                    .frame(width: 22)
-                Text(item.list?.name ?? "Add to List")
-                    .foregroundStyle(item.list == nil ? .secondary : .primary)
+                if let list = item.list {
+                    ListLabel(list: list)
+                } else {
+                    Image(systemName: "list.bullet").foregroundStyle(.teal)
+                        .frame(width: 22)
+                    Text("Add to List")
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.footnote)
@@ -112,6 +116,42 @@ struct ItemDetailView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(item.list.map { "List: \($0.name)" } ?? "Add to List")
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+    }
+
+    /// When the item was added and last edited, and by whom on a shared list.
+    private var attribution: some View {
+        let shared = item.list.map(Sharing.isShared) ?? false
+        let by: (String?) -> String = { id in
+            guard shared, let name = Sharing.name(for: id, in: item.list) else { return "" }
+            return " by \(name)"
+        }
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("Added\(by(item.createdByID)) · \(item.timestamp.formatted(date: .abbreviated, time: .shortened))")
+            if let edited = item.modifiedAt, edited.timeIntervalSince(item.timestamp) > 60 {
+                Text("Edited\(by(item.modifiedByID)) · \(edited.formatted(.relative(presentation: .named)))")
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+    }
+
+    private var shownHeart: Bool { pendingHeart ?? item.heartedByMe }
+
+    /// Flips the heart immediately and ignores taps until the save finishes, so a second tap
+    /// during the iCloud round trip can't undo the first.
+    private func toggleHeart() {
+        guard !isSavingHeart else { return }
+        pendingHeart = !item.heartedByMe
+        isSavingHeart = true
+        Task {
+            await Hearts.toggle(item, in: modelContext)
+            isSavingHeart = false
+            // Keep showing the choice until the saved state agrees, then hand back to it.
+            for _ in 0..<20 where item.heartedByMe != pendingHeart {
+                try? await Task.sleep(for: .milliseconds(150))
+            }
+            pendingHeart = nil
+        }
     }
 
     private func resort() async {
@@ -135,7 +175,7 @@ struct ItemDetailView: View {
         item.latitude = nil
         item.longitude = nil
         item.sortError = nil
-        let all = (try? modelContext.fetch(FetchDescriptor<Item>())) ?? [item]
+        let all = Item.all(in: modelContext)
         _ = await Processor.processPending([item] + all.filter { $0.id != item.id && $0.status != "pending" },
                                            filer: filer)
         try? modelContext.save()
@@ -410,5 +450,16 @@ struct ReminderRow: View {
             reminder.isCompleted = done
             try? store.save(reminder, commit: true)
         }
+    }
+}
+
+/// A list's icon and name, observed so renames and new icons or colors show right away.
+private struct ListLabel: View {
+    @ObservedObject var list: ItemList
+
+    var body: some View {
+        ListIcon(list: list, size: 22)
+            .frame(width: 22)
+        Text(list.name)
     }
 }

@@ -1,38 +1,69 @@
+import CoreData
 import Foundation
-import SwiftData
 
-@Model
-final class Item {
-    var id: UUID = UUID()
-    var timestamp: Date = Date()
-    var contentURL: String?
-    var contentText: String?
-    var sourceApp: String?
-    var userNote: String?
-    var quickTag: String?
+/// A shared item. Backed by Core Data (entity "Item" in DumplingModel) so lists can be shared through iCloud.
+@objc(DumplingItem)
+final class Item: NSManagedObject {
+    @NSManaged var id: UUID
+    @NSManaged var timestamp: Date
+    @NSManaged var contentURL: String?
+    @NSManaged var contentText: String?
+    @NSManaged var sourceApp: String?
+    @NSManaged var userNote: String?
+    @NSManaged var quickTag: String?
     /// "pending" (not sorted yet) | "filed" (in Reminders/Calendar) | "kept" (stays in Dumpling) | "failed"
-    var status: String = "pending"
-    var syncedAt: Date?
+    @NSManaged var status: String
+    @NSManaged var syncedAt: Date?
 
     // Set by on-device sorting
-    var category: String?
-    var title: String?
-    var relevantDate: Date?
-    var filedTo: String?
-    var eventKitID: String?
-    var sortError: String?
-    var location: String?
-    var latitude: Double?
-    var longitude: Double?
-    var isAllDay: Bool = false
-    var archivedAt: Date?
-    var list: ItemList?
+    @NSManaged var category: String?
+    @NSManaged var title: String?
+    @NSManaged var relevantDate: Date?
+    @NSManaged var filedTo: String?
+    @NSManaged var eventKitID: String?
+    @NSManaged var sortError: String?
+    @NSManaged var location: String?
+    @NSManaged var isAllDay: Bool
+    @NSManaged var archivedAt: Date?
+    @NSManaged var list: ItemList?
+    /// iCloud user record names, for "Added by" and "Edited by" on shared lists.
+    @NSManaged var createdByID: String?
+    @NSManaged var modifiedByID: String?
+    @NSManaged var modifiedAt: Date?
+    @NSManaged private var hearts: NSSet?
     /// The user's own heart.
-    var isHearted: Bool = false
-    /// Hearts from other people on a shared list. Always 0 until lists can be shared.
-    var otherHearts: Int = 0
+    @NSManaged var isHearted: Bool
 
-    init(
+    // Optional numbers are stored as objects, so they go through KVC.
+    var latitude: Double? {
+        get { value(forKey: "latitude") as? Double }
+        set { setValue(newValue, forKey: "latitude") }
+    }
+
+    var longitude: Double? {
+        get { value(forKey: "longitude") as? Double }
+        set { setValue(newValue, forKey: "longitude") }
+    }
+
+    /// Hearts from other people on a shared list.
+    var otherHearts: Int {
+        get { Int(value(forKey: "otherHearts") as? Int64 ?? 0) }
+        set { setValue(Int64(newValue), forKey: "otherHearts") }
+    }
+
+    @nonobjc static func fetchRequest() -> NSFetchRequest<Item> {
+        NSFetchRequest<Item>(entityName: "Item")
+    }
+
+    /// Every item across the private and shared stores, oldest first.
+    static func all(in context: NSManagedObjectContext) -> [Item] {
+        let request = fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: true)]
+        return (try? context.fetch(request)) ?? []
+    }
+
+    convenience init(
+        context: NSManagedObjectContext,
         id: UUID = UUID(),
         contentURL: String? = nil,
         contentText: String? = nil,
@@ -40,6 +71,7 @@ final class Item {
         userNote: String? = nil,
         quickTag: String? = nil
     ) {
+        self.init(context: context)
         self.id = id
         self.timestamp = Date()
         self.contentURL = contentURL
@@ -48,6 +80,20 @@ final class Item {
         self.userNote = userNote
         self.quickTag = quickTag
         self.status = "pending"
+        self.createdByID = Hearts.myID
+    }
+
+    /// Stamps who changed the item and when. Only saves made on this device count: CloudKit imports
+    /// merge into the view context without saving it, so other people's changes keep their own stamps.
+    /// Heart and sync bookkeeping aren't edits.
+    override func willSave() {
+        super.willSave()
+        guard !isDeleted, managedObjectContext === Persistence.shared.viewContext else { return }
+        let changed = Set(changedValues().keys)
+        guard !changed.isSubset(of: ["modifiedByID", "modifiedAt", "syncedAt", "hearts"]) else { return }
+        // Primitive setters so this doesn't trigger another round of willSave.
+        setPrimitiveValue(Hearts.myID, forKey: "modifiedByID")
+        setPrimitiveValue(Date(), forKey: "modifiedAt")
     }
 
     // MARK: - Display helpers
@@ -74,7 +120,17 @@ final class Item {
 
     var categoryLabel: String? { category?.capitalized }
 
-    var heartCount: Int { (isHearted ? 1 : 0) + otherHearts }
+    var heartRecords: [Heart] { (hearts?.allObjects as? [Heart]) ?? [] }
+
+    func heart(by userID: String) -> Heart? { heartRecords.first { $0.userID == userID } }
+
+    /// Distinct people who hearted the item. `isHearted` is the pre-per-person flag, kept until converted.
+    var heartedByMe: Bool { Hearts.myID.map { heart(by: $0) != nil } ?? false }
+    var otherHeartCount: Int { Set(heartRecords.map(\.userID)).subtracting([Hearts.myID ?? ""]).count }
+    var heartCount: Int { (heartedByMe ? 1 : 0) + otherHeartCount }
+
+    /// In a list someone else shared with the user. These only show inside their list.
+    var isFromSharedList: Bool { objectID.persistentStore == Persistence.shared.sharedStore }
 
     var isFiled: Bool { status == "filed" }
     /// Filed by the user to keep, without a Calendar or Reminders entry.
@@ -109,3 +165,5 @@ final class Item {
         CategoryKind(quickTag: quickTag)?.label ?? quickTag
     }
 }
+
+extension Item: Identifiable {}

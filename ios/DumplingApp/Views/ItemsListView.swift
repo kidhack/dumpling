@@ -1,5 +1,5 @@
 import SwiftUI
-import SwiftData
+import CoreData
 import FoundationModels
 
 enum ItemsSection: String, CaseIterable, Identifiable {
@@ -15,6 +15,8 @@ enum ItemsSection: String, CaseIterable, Identifiable {
     }
 
     func contains(_ item: Item) -> Bool {
+        // Items from lists others shared only appear inside those lists.
+        if item.isFromSharedList { return false }
         switch self {
         case .inbox: return item.isInInbox
         case .filed: return item.isInFiled
@@ -43,10 +45,10 @@ struct ItemsListView: View {
     let section: ItemsSection
     /// Bumped when the user taps this tab while already on it; resets the filter to All.
     var filterResetToken = 0
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
     /// Newest first.
-    @Query(sort: \Item.timestamp, order: .reverse) private var items: [Item]
+    @FetchRequest(sortDescriptors: [SortDescriptor(\Item.timestamp, order: .reverse)]) private var items: FetchedResults<Item>
 
     @State private var pull: CGFloat = 0
     @State private var isDragging = false
@@ -350,30 +352,48 @@ struct ItemRowView: View {
 
             Spacer(minLength: 0)
             if item.heartCount > 0 {
-                HeartBadge(count: item.heartCount)
+                HeartGlyph(mine: item.heartedByMe, others: item.otherHeartCount)
+                    .font(.subheadline)
             }
         }
         .padding(.vertical, 2)
     }
 }
 
-/// A red heart; a second, lighter one sits behind it once more than one person has hearted the item.
-struct HeartBadge: View {
-    let count: Int
+/// Hearts on an item. A red heart peeks out behind when someone else hearted it; in front is the user's own
+/// heart, solid red or an empty outline. A ring in the background color separates the two.
+struct HeartGlyph: View {
+    let mine: Bool
+    let others: Int
+    /// The color behind the glyph, used for the separating ring and to hide the back heart inside an outline.
+    var background: Color = Color(.secondarySystemGroupedBackground)
 
     var body: some View {
         ZStack {
-            if count > 1 {
+            if others > 0 {
                 Image(systemName: "heart.fill")
-                    .foregroundStyle(.red.opacity(0.45))
-                    .offset(x: -7, y: -3)
+                    .foregroundStyle(.red)
+                    .offset(x: -5, y: -4)
             }
-            Image(systemName: "heart.fill")
-                .foregroundStyle(.red)
+            Image(systemName: mine ? "heart.fill" : "heart")
+                .foregroundStyle(mine ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                .background {
+                    Image(systemName: "heart.fill")
+                        .foregroundStyle(background)
+                        .scaleEffect(others > 0 ? 1.3 : 1)
+                }
         }
-        .font(.subheadline)
         .accessibilityElement()
-        .accessibilityLabel(count > 1 ? "\(count) hearts" : "Hearted")
+        .accessibilityLabel(label)
+    }
+
+    private var label: String {
+        switch (mine, others) {
+        case (true, 0): return "Hearted by you"
+        case (true, let n): return "Hearted by you and \(n) other\(n == 1 ? "" : "s")"
+        case (false, 0): return "Not hearted"
+        case (false, let n): return "Hearted by \(n) other\(n == 1 ? "" : "s")"
+        }
     }
 }
 

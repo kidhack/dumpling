@@ -1,9 +1,9 @@
 import SwiftUI
-import SwiftData
+import CoreData
 
 /// Adds an item without the share sheet. It's sorted like a shared item.
 struct NewItemView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
     @Environment(\.dismiss) private var dismiss
 
@@ -47,12 +47,13 @@ struct NewItemView: View {
         let link = Self.singleLink(in: trimmedContent)
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         let item = Item(
+            context: modelContext,
             contentURL: link?.absoluteString,
             contentText: link == nil ? trimmedContent : nil,
             userNote: trimmedNote.isEmpty ? nil : trimmedNote,
             quickTag: category?.quickTag
         )
-        modelContext.insert(item)
+        Persistence.shared.assignToPrivateStore(item)
         try? modelContext.save()
         dismiss()
         Task { await pipeline.refresh(modelContext) }
