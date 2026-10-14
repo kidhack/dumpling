@@ -2,7 +2,7 @@ import CoreLocation
 import SwiftUI
 import UIKit
 
-/// "Notify Me Nearby" in a place's details, with the hours it goes by and anything stopping it from working.
+/// "Notify when nearby" in a place's details, with the hours it goes by and anything stopping it from working.
 struct NearbyRow: View {
     let item: Item
 
@@ -21,7 +21,7 @@ struct NearbyRow: View {
                     Image(systemName: "bell.badge")
                         .foregroundStyle(.secondary)
                         .frame(width: 22)
-                    Text("Notify Me Nearby")
+                    Text("Notify when nearby")
                 }
             }
             .disabled(isWorking)

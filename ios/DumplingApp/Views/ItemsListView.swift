@@ -375,7 +375,7 @@ struct ItemsBottomControls: View {
     }
 }
 
-/// On places with Notify Me Nearby on, while the user is within range: a green arrow and the distance.
+/// On places with Notify when nearby on, while the user is within range: a green arrow and the distance.
 struct NearbyBadge: View {
     let item: Item
 

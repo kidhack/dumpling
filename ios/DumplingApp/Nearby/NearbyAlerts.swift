@@ -6,7 +6,7 @@ import UserNotifications
 
 private let logger = Logger(subsystem: "com.kidhack.dumpling", category: "Nearby")
 
-/// "Notify Me Nearby": watches places the user picked and sends a notification on arriving close by, when
+/// "Notify when nearby": watches places the user picked and sends a notification on arriving close by, when
 /// the place is open (if its hours are known). The setting lives on this device, not on the item, so turning
 /// it on for a place in a shared list doesn't ping anyone else.
 @MainActor @Observable
