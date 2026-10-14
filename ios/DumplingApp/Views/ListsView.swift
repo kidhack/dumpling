@@ -215,36 +215,23 @@ struct ListDetailView: View {
                             showingMap: $showingMap, selectedPin: selectedPin, userLocation: userLocation)
     }
 
+    /// "20 items", plus who it's shared with when it is.
+    private var subtitle: String {
+        let count = items.count == 1 ? "1 item" : "\(items.count) items"
+        return Sharing.isShared(list) ? "Shared · \(count)" : count
+    }
+
     private var header: some View {
         ScreenHeader {
-            HStack(spacing: 8) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.title3.weight(.semibold))
-                        .headerGlassCircle()
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Back to Lists")
-                // Tapping the list's name opens its details.
-                Button {
-                    showingEdit = true
-                } label: {
-                    HStack(spacing: 8) {
-                        ListIcon(list: list, size: 30)
-                        Text(list.name)
-                            .font(.title2.bold())
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                    }
-                    .padding(.leading, -8)
-                    .headerGlass()
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(list.name), List Details")
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.title3.weight(.semibold))
+                    .headerGlassCircle()
             }
-
+            .buttonStyle(.plain)
+            .accessibilityLabel("Back to Lists")
         } trailing: {
             Menu {
                 if Sharing.isOwner(of: list) {
@@ -270,6 +257,26 @@ struct ListDetailView: View {
                     .headerGlassCircle()
             }
             .accessibilityLabel("List Options")
+        }
+        // Like a Notes folder: the name centered, plain, with a count under it. Tapping it opens List Details.
+        .overlay {
+            Button {
+                showingEdit = true
+            } label: {
+                VStack(spacing: 1) {
+                    Text(list.name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .lineLimit(1)
+                .frame(maxWidth: 220)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(list.name), \(subtitle), List Details")
         }
     }
 }
