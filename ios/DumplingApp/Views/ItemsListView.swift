@@ -93,6 +93,13 @@ struct ItemsListView: View {
 
     var body: some View {
         List(selection: $selection) {
+            if section == .inbox, let reason = pipeline.modelUnavailable {
+                ModelUnavailableBanner(reason: reason)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
+                    .listRowSeparator(.hidden)
+                    .listSectionSeparator(.hidden)
+            }
             // One group of plain rows with faint dividers, not a card per item.
             Section {
                 ForEach(visible) { item in
@@ -123,15 +130,33 @@ struct ItemsListView: View {
         .overlay {
             if showingMap {
                 ItemsMapView(items: visible, selection: $selectedPin, userLocation: $userLocation)
-                    .safeAreaInset(edge: .top, spacing: 0) { headerStack.padding(.bottom, ScreenHeaderSpacing.bottom) }
                     .safeAreaInset(edge: .bottom, spacing: 0) { bottomControls }
                     .transition(.opacity)
             }
         }
         .scrollEdgeEffectHidden(showingMap, for: .all)
-        .screenHeader(hidden: showingMap) { headerStack }
         .navigationTitle(section.rawValue)
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarTitleDisplayMode(showingMap ? .inline : .large)
+        // Like Mail: while selecting, Select All takes the back button's place.
+        .navigationBarBackButtonHidden(isSelecting)
+        .toolbar {
+            if isSelecting {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(allSelected ? "Deselect All" : "Select All") {
+                        selection = allSelected ? [] : Set(visible.map(\.id))
+                    }
+                }
+            }
+            if !inSection.isEmpty && !showingMap {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if isSelecting {
+                        Button("Done", role: .confirm) { endSelecting() }
+                    } else {
+                        Button("Select") { editMode = .active }
+                    }
+                }
+            }
+        }
         .overlay {
             if visible.isEmpty {
                 if let filter, !inSection.isEmpty {
@@ -161,54 +186,7 @@ struct ItemsListView: View {
         .onAppear { Task { await pipeline.refresh(modelContext) } }
     }
 
-    // MARK: - Header
-
-    private var header: some View {
-        ScreenHeader {
-            if isSelecting {
-                // Like Mail: select everything showing (the current filter), or clear it.
-                Button(allSelected ? "Deselect All" : "Select All") {
-                    selection = allSelected ? [] : Set(visible.map(\.id))
-                }
-                .buttonStyle(.plain)
-                .headerGlass()
-            } else {
-                HStack(spacing: 8) {
-                    // Back to the Lists screen, like Mail's mailboxes.
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.title3.weight(.semibold))
-                            .headerGlassCircle()
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Lists")
-                    // A title, not a button, so no glass.
-                    Text(section.rawValue)
-                        .font(.title2.bold())
-                }
-            }
-        } trailing: {
-            if !inSection.isEmpty && !showingMap {
-                Button(isSelecting ? "Done" : "Select") {
-                    if isSelecting { endSelecting() } else { editMode = .active }
-                }
-                .fontWeight(isSelecting ? .semibold : .regular)
-                .buttonStyle(.plain)
-                .headerGlass()
-            }
-        }
-    }
-
-    private var headerStack: some View {
-        VStack(spacing: 8) {
-            header
-            if section == .inbox, let reason = pipeline.modelUnavailable {
-                ModelUnavailableBanner(reason: reason)
-            }
-        }
-    }
+    // MARK: - Bottom
 
     private var bottomControls: some View {
         ItemsBottomControls(visible: visible, filter: $filter, available: availableFilters,
@@ -448,16 +426,5 @@ struct ModelUnavailableBanner: View {
         @unknown default:
             return "On-device sorting isn't available right now."
         }
-    }
-}
-
-/// Two-line menu icon (after Hugeicons "menu-two-line"); SF Symbols only has a three-line one.
-struct MenuTwoLineIcon: View {
-    var body: some View {
-        VStack(spacing: 6) {
-            Capsule().frame(width: 20, height: 2.5)
-            Capsule().frame(width: 20, height: 2.5)
-        }
-        .foregroundStyle(.primary)
     }
 }

@@ -72,35 +72,19 @@ struct ListsView: View {
             }
         }
         .cardList()
-        .screenHeader {
-            ScreenHeader {
-                Text("Dumpling")
-                    .font(.title2.bold())
-                    .padding(.leading, 4)
-            } trailing: {
-                Button {
-                    editing = EditTarget(list: nil)
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.title3.weight(.semibold))
-                        .headerGlassCircle()
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("New List")
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button("New List", systemImage: "plus") { editing = EditTarget(list: nil) }
                 Menu {
                     Button("About", systemImage: "info.circle") { showingAbout = true }
                     Button("Settings", systemImage: "gearshape") { showingSettings = true }
                 } label: {
-                    MenuTwoLineIcon()
-                        .headerGlassCircle()
+                    Label("Menu", systemImage: "ellipsis")
                 }
-                // Menus tint their label; match the + beside it.
-                .tint(Color(.label))
-                .accessibilityLabel("Menu")
             }
         }
-        .navigationTitle("Lists")
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationTitle("Dumpling")
+        .navigationBarTitleDisplayMode(.large)
         .sheet(item: $editing) { target in EditListSheet(list: target.list) }
         .sheet(isPresented: $showingAbout) { AboutView() }
         .sheet(isPresented: $showingSettings) { SettingsView() }
@@ -173,8 +157,6 @@ struct ListDetailView: View {
     @State private var selectedPin: UUID?
     @State private var showsMapHint = false
     @State private var userLocation: CLLocation?
-    /// The big title has scrolled under the header, so the small centered one shows instead.
-    @State private var titleScrolledAway = false
 
     private var canEdit: Bool { Sharing.canEdit(list) }
 
@@ -199,31 +181,6 @@ struct ListDetailView: View {
 
     var body: some View {
         List {
-            // Like a Notes folder: a big title and count at the top that scroll with the items, and give way
-            // to the small centered title in the header. Tapping either opens List Details.
-            Section {
-                Button {
-                    showingEdit = true
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(list.name)
-                            .font(.largeTitle.bold())
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
-                        Text(subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(list.name), \(subtitle), List Details")
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
-                .listRowSeparator(.hidden)
-                .listSectionSeparator(.hidden)
-            }
             Section {
                 ForEach(visible) { item in
                     NavigationLink(value: item) {
@@ -245,22 +202,15 @@ struct ListDetailView: View {
         .cardList()
         // Pull down past the top to add an item to this list, as in the Inbox (not on lists shared view-only).
         .pullToAdd(enabled: !showingMap && canEdit, list: list)
-        .onScrollGeometryChange(for: Bool.self) { geo in
-            geo.contentOffset.y + geo.contentInsets.top > 48
-        } action: { _, away in
-            titleScrolledAway = away
-        }
-        // As in the sections: on the map, the header and bottom controls are plain insets on the map.
+        // As in the sections: on the map, the bottom controls are a plain inset on the map.
         .overlay {
             if showingMap {
                 ItemsMapView(items: visible, selection: $selectedPin, userLocation: $userLocation)
-                    .safeAreaInset(edge: .top, spacing: 0) { header.padding(.bottom, ScreenHeaderSpacing.bottom) }
                     .safeAreaInset(edge: .bottom, spacing: 0) { bottomControls }
                     .transition(.opacity)
             }
         }
         .scrollEdgeEffectHidden(showingMap, for: .all)
-        .screenHeader(hidden: showingMap) { header }
         .safeAreaBar(edge: .bottom) {
             if !items.isEmpty && !showingMap { bottomControls }
         }
@@ -282,8 +232,16 @@ struct ListDetailView: View {
                 }
             }
         }
+        // Like a Reminders list: a large title (small over the map) with its count, and a title menu.
         .navigationTitle(list.name)
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationSubtitle(subtitle)
+        .navigationBarTitleDisplayMode(showingMap ? .inline : .large)
+        .toolbarTitleMenu {
+            Button("List Details…", systemImage: "info.circle") { showingEdit = true }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { listMenu }
+        }
         .sheet(isPresented: $showingEdit) { EditListSheet(list: list, onLeave: { dismiss() }) }
         .sheet(item: $listPickerItem) { ListPickerSheet(items: [$0]) }
     }
@@ -300,65 +258,27 @@ struct ListDetailView: View {
         return Sharing.isShared(list) ? "Shared · \(count)" : count
     }
 
-    private var header: some View {
-        ScreenHeader {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.title3.weight(.semibold))
-                    .headerGlassCircle()
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Back to Lists")
-        } trailing: {
-            Menu {
-                if Sharing.isOwner(of: list) {
-                    Button(Sharing.isShared(list) ? "Manage Sharing…" : "Share List…",
-                           systemImage: Sharing.isShared(list) ? "person.2" : "person.crop.circle.badge.plus") {
-                        Task { await ShareController.shared.present(list) }
-                    }
-                    Button("List Details…", systemImage: "info.circle") { showingEdit = true }
-                    Button("Delete List", systemImage: "trash", role: .destructive) {
-                        dismiss()
-                        Task { await Sharing.delete(list, in: modelContext) }
-                    }
-                } else {
-                    Button("List Details…", systemImage: "info.circle") { showingEdit = true }
-                    Button("Leave List", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                        dismiss()
-                        Task { await Sharing.leave(list) }
-                    }
+    private var listMenu: some View {
+        Menu {
+            if Sharing.isOwner(of: list) {
+                Button(Sharing.isShared(list) ? "Manage Sharing…" : "Share List…",
+                       systemImage: Sharing.isShared(list) ? "person.2" : "person.crop.circle.badge.plus") {
+                    Task { await ShareController.shared.present(list) }
                 }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.title3.weight(.semibold))
-                    .headerGlassCircle()
-            }
-            .accessibilityLabel("List Options")
-        }
-        // Like a Notes folder: the name centered, plain, with a count under it. Tapping it opens List Details.
-        .overlay {
-            Button {
-                showingEdit = true
-            } label: {
-                VStack(spacing: 1) {
-                    Text(list.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                Button("List Details…", systemImage: "info.circle") { showingEdit = true }
+                Button("Delete List", systemImage: "trash", role: .destructive) {
+                    dismiss()
+                    Task { await Sharing.delete(list, in: modelContext) }
                 }
-                .lineLimit(1)
-                .frame(maxWidth: 220)
-                .contentShape(.rect)
+            } else {
+                Button("List Details…", systemImage: "info.circle") { showingEdit = true }
+                Button("Leave List", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                    dismiss()
+                    Task { await Sharing.leave(list) }
+                }
             }
-            .buttonStyle(.plain)
-            .opacity(titleScrolledAway || showingMap ? 1 : 0)
-            .allowsHitTesting(titleScrolledAway || showingMap)
-            .animation(.easeOut(duration: 0.15), value: titleScrolledAway)
-            .accessibilityLabel("\(list.name), \(subtitle), List Details")
+        } label: {
+            Label("List Options", systemImage: "ellipsis")
         }
     }
 }

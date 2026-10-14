@@ -66,45 +66,21 @@ struct ItemDetailView: View {
         } action: { _, away in
             titleScrolledAway = away
         }
-        // The same custom header as the lists: swapping the system bar in and out changed the top inset,
-        // which made the list jump when coming back from an item.
-        .screenHeader {
-            ScreenHeader {
-                HStack(spacing: 8) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.title3.weight(.semibold))
-                            .headerGlassCircle()
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Back")
-                    // The title field already shows it at the top, so the header only does once that scrolls away
-                    // (filed items have no title field).
-                    Text(item.displayTitle)
-                        .font(.headline)
-                        .lineLimit(1)
-                        .opacity(titleScrolledAway ? 1 : 0)
-                        .animation(.easeOut(duration: 0.15), value: titleScrolledAway)
-                }
-            } trailing: {
+        // The title field shows the title at the top, so the bar only does once that scrolls away.
+        .navigationTitle(titleScrolledAway ? item.displayTitle : "")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button(action: toggleHeart) {
-                    HeartGlyph(mine: shownHeart, others: item.otherHeartCount,
-                               background: Color(.systemGroupedBackground))
-                        .font(.title3)
+                    HeartGlyph(mine: shownHeart, others: item.otherHeartCount)
                         .symbolEffect(.bounce, value: shownHeart)
                         .scaleEffect(isSavingHeart ? 1.12 : 1)
                         .animation(.spring(response: 0.25, dampingFraction: 0.5), value: shownHeart)
-                        .headerGlassCircle()
                 }
-                .buttonStyle(.plain)
                 .sensoryFeedback(.impact(weight: .light), trigger: shownHeart)
                 .accessibilityLabel(shownHeart ? "Remove Heart" : "Heart")
             }
         }
-        .navigationTitle(item.displayTitle)
-        .toolbar(.hidden, for: .navigationBar)
         .onAppear { hasLink = item.contentURL != nil }
         .onDisappear {
             renameFiledEntry()
