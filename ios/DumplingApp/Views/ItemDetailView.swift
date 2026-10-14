@@ -299,16 +299,23 @@ struct ItemDetailView: View {
         // Otherwise the divider starts at the text, leaving a gap under the icon.
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
         if category == .event || category == .task {
-            Toggle(category == .event ? "Date" : "Due Date", isOn: hasDate)
+            iconRow("calendar") {
+                Toggle(category == .event ? "Date" : "Due Date", isOn: hasDate)
+            }
             if item.relevantDate != nil {
+                // Indented to the text above: they belong to the date.
                 Toggle("All Day", isOn: $item.isAllDay)
+                    .padding(.leading, 34)
                 DatePicker(category == .event ? "Starts" : "Due", selection: dateBinding,
                            displayedComponents: item.isAllDay ? [.date] : [.date, .hourAndMinute])
+                    .padding(.leading, 34)
             }
         }
         if category == .event || category == .location {
-            TextField(category == .location ? "Address" : "Location", text: optional(\.location))
-                .onSubmit { Task { await relocate() } }
+            iconRow("mappin") {
+                TextField(category == .location ? "Address" : "Location", text: optional(\.location))
+                    .onSubmit { Task { await relocate() } }
+            }
         }
     }
 
