@@ -46,12 +46,16 @@ enum Hearts {
         if let store = item.objectID.persistentStore { context.assign(heart, to: store) }
         heart.item = item
         try? context.save()
-        // On a list the user shared, new records must be added to the share to reach everyone.
+        // On a list the user shared, new records must be added to the share to reach everyone. That's an
+        // iCloud round trip, so it runs in the background: the heart is already saved locally.
         if !item.isFromSharedList, let list = item.list, let share = Sharing.share(for: list) {
-            do {
-                _ = try await Persistence.shared.container.share([heart], to: share)
-            } catch {
-                logger.error("Sharing heart failed: \(error.localizedDescription, privacy: .public)")
+            let container = Persistence.shared.container
+            Task {
+                do {
+                    _ = try await container.share([heart], to: share)
+                } catch {
+                    logger.error("Sharing heart failed: \(error.localizedDescription, privacy: .public)")
+                }
             }
         }
     }
