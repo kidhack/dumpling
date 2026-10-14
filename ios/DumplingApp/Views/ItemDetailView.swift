@@ -28,7 +28,8 @@ struct ItemDetailView: View {
         Form {
             Section {
                 if !item.isFiled {
-                    TextField("Title", text: optional(\.title))
+                    TextField("Title", text: optional(\.title), axis: .vertical)
+                        .font(.title2.weight(.semibold))
                 }
                 sharedRows
                 if item.isFiled {

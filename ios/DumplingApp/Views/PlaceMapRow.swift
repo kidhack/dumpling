@@ -19,7 +19,13 @@ struct PlaceMapRow: View {
             .accessibilityHidden(true)
 
             Button(action: openInMaps) {
-                Label("Open in Apple Maps", systemImage: "map")
+                // Icon lined up with the item rows' icons.
+                HStack(spacing: 12) {
+                    Image(systemName: "map")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22)
+                    Text("Open in Apple Maps")
+                }
             }
         }
         .padding(.vertical, 4)

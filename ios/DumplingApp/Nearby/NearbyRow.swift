@@ -16,7 +16,13 @@ struct NearbyRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Toggle(isOn: Binding(get: { isOn }, set: change)) {
-                Label("Notify Me Nearby", systemImage: "bell.badge")
+                // Icon lined up with the item rows' icons.
+                HStack(spacing: 12) {
+                    Image(systemName: "bell.badge")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22)
+                    Text("Notify Me Nearby")
+                }
             }
             .disabled(isWorking)
 
