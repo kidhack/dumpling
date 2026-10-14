@@ -23,40 +23,54 @@ enum ListColor: String, CaseIterable, Identifiable {
     }
 }
 
-/// 128 list icons. Every name was checked against the SF Symbols catalog (all available since iOS 18 or earlier).
+/// 132 list icons (22 full rows of 6). Every name was checked against the SF Symbols catalog
+/// (all available since iOS 18 or earlier).
 enum ListSymbols {
     static let defaultSymbol = "list.bullet"
 
     static let all: [String] = [
-        "list.bullet", "checklist", "star.fill", "heart.fill", "bookmark.fill", "flag.fill", "tag.fill", "pin.fill",
-        "airplane", "car.fill", "tram.fill", "bus.fill", "ferry.fill", "bicycle", "figure.walk", "suitcase.fill",
-        "map.fill", "globe.americas.fill", "mountain.2.fill", "beach.umbrella.fill", "tent.fill", "house.fill",
+        // General
+        "list.bullet", "checklist", "list.star", "star.fill", "heart.fill", "bookmark.fill", "flag.fill", "tag.fill",
+        "pin.fill", "link",
+        // Travel and places
+        "airplane", "car.fill", "tram.fill", "bus.fill", "ferry.fill", "sailboat.fill", "bicycle", "figure.walk",
+        "suitcase.fill", "bed.double.fill", "map.fill", "map.circle.fill", "mappin.and.ellipse", "signpost.right.fill",
+        "binoculars.fill", "globe.americas.fill", "mountain.2.fill", "beach.umbrella.fill", "tent.fill", "house.fill",
         "building.2.fill", "building.columns.fill",
-        "fork.knife", "cup.and.saucer.fill", "wineglass.fill", "mug.fill", "takeoutbag.and.cup.and.straw.fill",
-        "birthday.cake.fill", "carrot.fill", "fish.fill",
-        "cart.fill", "bag.fill", "basket.fill", "gift.fill", "creditcard.fill", "dollarsign.circle.fill",
+        // Food and drink
+        "fork.knife", "cup.and.saucer.fill", "cup.and.heat.waves.fill", "mug.fill", "wineglass.fill",
+        "takeoutbag.and.cup.and.straw.fill", "frying.pan.fill", "birthday.cake.fill", "carrot.fill", "fish.fill",
+        "popcorn.fill",
+        // Shopping
+        "cart.fill", "bag.fill", "basket.fill", "gift.fill", "tshirt.fill", "creditcard.fill", "dollarsign.circle.fill",
         "shippingbox.fill", "storefront.fill",
-        "music.note", "headphones", "guitars.fill", "pianokeys", "music.mic", "tv.fill", "film.fill",
-        "theatermasks.fill",
-        "book.fill", "books.vertical.fill", "newspaper.fill", "graduationcap.fill", "pencil", "paintbrush.fill",
-        "paintpalette.fill", "camera.fill",
-        "photo.fill", "lightbulb.fill", "brain.head.profile", "sparkles", "wand.and.stars", "puzzlepiece.fill",
-        "gamecontroller.fill", "dice.fill",
+        // Music, shows and events
+        "music.note", "music.quarternote.3", "headphones", "guitars.fill", "pianokeys", "tv.fill", "film.fill",
+        "theatermasks.fill", "ticket.fill", "party.popper.fill", "balloon.fill", "music.note.house.fill", "fireworks",
+        // Reading and learning
+        "book.fill", "text.book.closed.fill", "books.vertical.fill", "newspaper.fill", "graduationcap.fill",
+        "pencil", "paintbrush.fill", "paintpalette.fill", "camera.fill", "photo.fill",
+        // Ideas and play
+        "lightbulb.fill", "brain.head.profile", "sparkles", "wand.and.stars", "puzzlepiece.fill",
+        "gamecontroller.fill",
+        // Sports and activities
         "sportscourt.fill", "soccerball", "basketball.fill", "tennisball.fill", "figure.run", "figure.hiking",
-        "figure.yoga", "dumbbell.fill",
+        "figure.climbing", "figure.surfing", "figure.skiing.downhill", "figure.socialdance", "figure.yoga",
+        "dumbbell.fill", "trophy.fill",
+        // Health, nature and pets
         "heart.text.square.fill", "cross.case.fill", "pills.fill", "leaf.fill", "tree.fill", "pawprint.fill",
         "dog.fill", "cat.fill",
+        // Weather
         "sun.max.fill", "moon.fill", "cloud.fill", "snowflake", "flame.fill", "drop.fill", "bolt.fill",
         "umbrella.fill",
-        "calendar", "clock.fill", "alarm.fill", "hourglass", "bell.fill", "envelope.fill", "phone.fill",
-        "message.fill",
-        "person.fill", "person.2.fill", "person.3.fill", "figure.2.and.child.holdinghands", "heart.circle.fill",
-        "hand.thumbsup.fill", "face.smiling.fill", "crown.fill",
-        "briefcase.fill", "folder.fill", "doc.text.fill", "paperclip", "laptopcomputer", "desktopcomputer",
-        "iphone", "wrench.and.screwdriver.fill",
-        "hammer.fill", "key.fill", "lock.fill", "shield.fill", "trophy.fill", "medal.fill", "rosette", "target",
-        "ticket.fill", "party.popper.fill", "balloon.fill", "music.note.house.fill", "popcorn.fill", "fireworks",
-        "sailboat.fill", "stroller.fill",
+        // Time and reminders
+        "calendar", "calendar.badge.clock", "clock.fill", "alarm.fill", "hourglass", "bell.fill", "envelope.fill",
+        "phone.fill", "message.fill",
+        // People
+        "person.fill", "person.2.fill", "person.3.fill", "figure.2.and.child.holdinghands", "stroller.fill",
+        "heart.circle.fill", "hand.thumbsup.fill", "face.smiling.fill", "crown.fill",
+        // Work and home
+        "briefcase.fill", "folder.fill", "laptopcomputer", "target",
     ]
 }
 
