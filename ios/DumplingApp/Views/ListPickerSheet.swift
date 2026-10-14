@@ -1,6 +1,12 @@
 import SwiftUI
 import CoreData
 
+/// Items to move, as one value, so the sheet opens with them already set.
+struct ListPickerRequest: Identifiable {
+    let id = UUID()
+    let items: [Item]
+}
+
 /// Moves one or more items into a list, or out of their list. Can create a list on the way.
 struct ListPickerSheet: View {
     let items: [Item]
@@ -19,6 +25,7 @@ struct ListPickerSheet: View {
                         showingNewList = true
                     } label: {
                         Label("New List", systemImage: "plus")
+                            .foregroundStyle(Color(.label))
                     }
                 }
                 if !lists.isEmpty {
@@ -30,9 +37,9 @@ struct ListPickerSheet: View {
                                 HStack(spacing: 12) {
                                     ListIcon(list: list, size: 26)
                                     Text(list.name)
-                                        .foregroundStyle(.primary)
+                                        .foregroundStyle(Color(.label))
                                     Spacer()
-                                    if items.allSatisfy({ $0.list?.id == list.id }) {
+                                    if isIn(list) {
                                         Image(systemName: "checkmark").foregroundStyle(.tint)
                                     }
                                 }
@@ -60,6 +67,11 @@ struct ListPickerSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    /// Checked when every item being moved is already in the list (and there is at least one).
+    private func isIn(_ list: ItemList) -> Bool {
+        !items.isEmpty && items.allSatisfy { $0.list?.objectID == list.objectID }
     }
 
     private func move(to list: ItemList?) {

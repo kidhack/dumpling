@@ -60,8 +60,9 @@ struct ItemsListView: View {
     @State private var filter: CategoryKind?
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<UUID>()
-    @State private var listPickerItems: [Item] = []
-    @State private var showingListPicker = false
+    /// The items being moved. The sheet opens from this value itself: with a separate show flag, it could
+    /// open before the items were set and show every list checked.
+    @State private var listPicker: ListPickerRequest?
     @State private var confirmingDelete = false
     @State private var showingMap = false
     @State private var selectedPin: UUID?
@@ -98,8 +99,7 @@ struct ItemsListView: View {
                         .swipeActions(edge: .trailing) { ItemTrailingSwipeActions(item: item) }
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {
                             ItemLeadingSwipeActions(item: item, filer: pipeline.filer) {
-                                listPickerItems = [item]
-                                showingListPicker = true
+                                listPicker = ListPickerRequest(items: [item])
                             }
                         }
                     }
@@ -109,8 +109,8 @@ struct ItemsListView: View {
             .cardList()
             // Pull down past the newest item to add one (Inbox only).
             .pullToAdd(enabled: section == .inbox && !isSelecting)
-            .sheet(isPresented: $showingListPicker) {
-                ListPickerSheet(items: listPickerItems) { endSelecting() }
+            .sheet(item: $listPicker) { request in
+                ListPickerSheet(items: request.items) { endSelecting() }
             }
             // On the map, the header and bottom controls are plain insets on the map rather than the list's
             // bars: system bars draw an edge layer behind themselves, which showed as a band over the map.
@@ -241,8 +241,7 @@ struct ItemsListView: View {
                 .tint(.red)
             } else {
                 Button {
-                    listPickerItems = selectedItems
-                    showingListPicker = true
+                    listPicker = ListPickerRequest(items: selectedItems)
                 } label: {
                     Label("Move to List", systemImage: "list.bullet")
                 }
