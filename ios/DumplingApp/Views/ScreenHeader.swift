@@ -35,8 +35,11 @@ extension View {
 
 extension View {
     /// A row without a card behind it, divided from the next by a faint line.
+    /// The list keeps its margin from the screen edges; with no card, the row's own side padding goes, so its
+    /// icon lines up with the header and filter row.
     func plainRow() -> some View {
         listRowBackground(Color.clear)
+            .listRowInsets(.horizontal, 4)
             .listRowSeparatorTint(Color(.separator).opacity(0.5))
             // Only lines between rows: not the group's top and bottom edges, which showed above the first row.
             .listSectionSeparator(.hidden)
@@ -47,9 +50,6 @@ extension View {
     func cardList() -> some View {
         listSectionSpacing(10)
             .scrollEdgeEffectStyle(.soft, for: .all)
-            // Rows are plain now, so the inset a card needed from the screen edges is just empty space. Without
-            // it, row icons line up with the header and filter row.
-            .contentMargins(.horizontal, 0, for: .scrollContent)
     }
 
     /// Pins `header` above a scrolling list, with the system's soft edge effect beneath it.

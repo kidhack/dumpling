@@ -179,7 +179,7 @@ struct ListDetailView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(list.name), \(subtitle), List Details")
                 .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 16))
+                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
                 .listRowSeparator(.hidden)
                 .listSectionSeparator(.hidden)
             }
