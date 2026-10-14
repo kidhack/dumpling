@@ -131,6 +131,8 @@ struct ListDetailView: View {
     var isActiveTab = true
     @Environment(\.managedObjectContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(ItemPipeline.self) private var pipeline
+    @State private var listPickerItem: Item?
     @State private var showingEdit = false
     @State private var filter: CategoryKind?
     @State private var showingMap = false
@@ -139,6 +141,8 @@ struct ListDetailView: View {
     @State private var userLocation: CLLocation?
     /// The big title has scrolled under the header, so the small centered one shows instead.
     @State private var titleScrolledAway = false
+
+    private var canEdit: Bool { Sharing.canEdit(list) }
 
     private var items: [Item] { list.itemsArray.sorted { $0.timestamp > $1.timestamp } }
 
@@ -179,23 +183,21 @@ struct ListDetailView: View {
                     NavigationLink(value: item) {
                         ItemRowView(item: item, section: item.isArchived ? .archived : item.isFiled ? .filed : .inbox)
                     }
+                    // The same swipes as in the sections; not on lists shared view-only.
                     .swipeActions(edge: .trailing) {
-                        Button {
-                            Task {
-                                await Sharing.move(item, to: nil, in: modelContext)
-                                try? modelContext.save()
-                            }
-                        } label: {
-                            Label("Remove", systemImage: "minus.circle")
+                        if canEdit { ItemTrailingSwipeActions(item: item) }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        if canEdit {
+                            ItemLeadingSwipeActions(item: item, filer: pipeline.filer) { listPickerItem = item }
                         }
-                        .tint(.gray)
                     }
                 }
             }
         }
         .cardList()
         // Pull down past the top to add an item to this list, as in the Inbox (not on lists shared view-only).
-        .pullToAdd(enabled: !showingMap && Sharing.canEdit(list), list: list)
+        .pullToAdd(enabled: !showingMap && canEdit, list: list)
         .onScrollGeometryChange(for: Bool.self) { geo in
             geo.contentOffset.y + geo.contentInsets.top > 48
         } action: { _, away in
@@ -239,6 +241,7 @@ struct ListDetailView: View {
         .navigationTitle(list.name)
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingEdit) { EditListSheet(list: list, onLeave: { dismiss() }) }
+        .sheet(item: $listPickerItem) { ListPickerSheet(items: [$0]) }
     }
 
     private var bottomControls: some View {

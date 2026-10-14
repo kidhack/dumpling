@@ -93,8 +93,13 @@ struct ItemsListView: View {
                         }
                         .tag(item.id)
                         .id(item.id)
-                        .swipeActions(edge: .trailing) { trailingActions(for: item) }
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingActions(for: item) }
+                        .swipeActions(edge: .trailing) { ItemTrailingSwipeActions(item: item) }
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            ItemLeadingSwipeActions(item: item, filer: pipeline.filer) {
+                                listPickerItems = [item]
+                                showingListPicker = true
+                            }
+                        }
                     }
                 }
             }
@@ -247,80 +252,6 @@ struct ItemsListView: View {
     private func endSelecting() {
         selection.removeAll()
         editMode = .inactive
-    }
-
-    // MARK: - Swipes
-
-    /// Swipe right: keep it, send it to Reminders or Calendar, or move it to a list. Icons only.
-    @ViewBuilder
-    private func leadingActions(for item: Item) -> some View {
-        if !item.isFiled {
-            Button {
-                item.saveForLater()
-                try? modelContext.save()
-            } label: {
-                Image(systemName: "bookmark")
-            }
-            .tint(.indigo)
-            .accessibilityLabel("Save for Later")
-            Button {
-                Task {
-                    await Processor.fileNow(item, as: .task, filer: pipeline.filer)
-                    try? modelContext.save()
-                }
-            } label: {
-                Image(systemName: CategoryKind.task.systemImage)
-            }
-            .tint(CategoryKind.task.tint)
-            .accessibilityLabel("Add to Reminders")
-            if item.relevantDate != nil {
-                Button {
-                    Task {
-                        await Processor.fileNow(item, as: .event, filer: pipeline.filer)
-                        try? modelContext.save()
-                    }
-                } label: {
-                    Image(systemName: CategoryKind.event.systemImage)
-                }
-                .tint(CategoryKind.event.tint)
-                .accessibilityLabel("Add to Calendar")
-            }
-        }
-        Button {
-            listPickerItems = [item]
-            showingListPicker = true
-        } label: {
-            Image(systemName: "list.bullet")
-        }
-        .tint(.teal)
-        .accessibilityLabel("Move to List")
-    }
-
-    @ViewBuilder
-    private func trailingActions(for item: Item) -> some View {
-        Button(role: .destructive) {
-            modelContext.delete(item)
-            try? modelContext.save()
-        } label: {
-            Label(item.isFiled ? "Remove" : "Delete", systemImage: "trash")
-        }
-        if item.isArchived {
-            Button {
-                item.archivedAt = nil
-                try? modelContext.save()
-            } label: {
-                Label("Unarchive", systemImage: "tray.and.arrow.up")
-            }
-            .tint(.blue)
-        } else {
-            Button {
-                item.archivedAt = .now
-                try? modelContext.save()
-            } label: {
-                Label("Archive", systemImage: "archivebox")
-            }
-            .tint(.indigo)
-        }
     }
 }
 
