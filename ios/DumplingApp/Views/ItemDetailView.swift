@@ -57,6 +57,17 @@ struct ItemDetailView: View {
             buttons
         }
         .scrollEdgeEffectStyle(.soft, for: .all)
+        // Put the keyboard away by dragging the form down, or with Done above the keyboard.
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
+                .fontWeight(.semibold)
+            }
+        }
         .onScrollGeometryChange(for: Bool.self) { geo in
             geo.contentOffset.y + geo.contentInsets.top > 40
         } action: { _, away in
