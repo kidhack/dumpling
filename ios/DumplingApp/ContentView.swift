@@ -35,9 +35,14 @@ struct ContentView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ListsView(path: $path)
-                .navigationDestination(for: ItemsSection.self) { ItemsListView(section: $0) }
-                .navigationDestination(for: ItemList.self) { ListDetailView(list: $0) }
-                .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: pipeline.filer) }
+                // Swipe back from the left edge, or from anywhere on the background.
+                .swipeBackEnabled()
+                // On every screen: the app opens a screen in (the Inbox), so Lists may never have appeared.
+                .navigationDestination(for: ItemsSection.self) { ItemsListView(section: $0).swipeBackEnabled() }
+                .navigationDestination(for: ItemList.self) { ListDetailView(list: $0).swipeBackEnabled() }
+                .navigationDestination(for: Item.self) {
+                    ItemDetailView(item: $0, filer: pipeline.filer).swipeBackEnabled()
+                }
         }
         .environment(pipeline)
         .sheet(item: notifiedItem) { item in
