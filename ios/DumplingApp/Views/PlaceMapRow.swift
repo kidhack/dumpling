@@ -20,7 +20,7 @@ struct PlaceMapRow: View {
         .accessibilityLabel("Map of \(name)")
         .accessibilityAddTraits(.isButton)
         .accessibilityHint("Opens in Apple Maps")
-        .accessibilityAction(perform: openInMaps)
+        .accessibilityAction { openInMaps() }
         .padding(.vertical, 4)
     }
 
