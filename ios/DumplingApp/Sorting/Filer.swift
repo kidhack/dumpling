@@ -94,7 +94,9 @@ final class Filer {
         let wantedTitle = Self.normalized(title)
         let wantedURL = url?.absoluteString
         return await withCheckedContinuation { continuation in
-            store.fetchReminders(matching: predicate) { reminders in
+            // EventKit calls back on a background queue. @Sendable keeps the closure from inheriting the main
+            // actor, whose isolation check would otherwise crash the app there.
+            store.fetchReminders(matching: predicate) { @Sendable reminders in
                 let match = reminders?.first { reminder in
                     if let wantedURL, reminder.url?.absoluteString == wantedURL || (reminder.notes ?? "").contains(wantedURL) {
                         return true

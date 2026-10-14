@@ -85,7 +85,8 @@ enum Sharing {
     /// Saves changes the sharing sheet made (participants, permissions, title).
     static func persistUpdatedShare(_ share: CKShare, for list: ItemList) {
         guard let store = list.objectID.persistentStore else { return }
-        container.persistUpdatedShare(share, in: store) { _, error in
+        // CloudKit calls back on a background queue; @Sendable keeps the closure off the main actor.
+        container.persistUpdatedShare(share, in: store) { @Sendable _, error in
             if let error { logger.error("Saving share failed: \(error.localizedDescription, privacy: .public)") }
         }
     }
@@ -94,11 +95,12 @@ enum Sharing {
 
     static func accept(_ metadata: CKShare.Metadata) {
         guard let sharedStore = persistence.sharedStore else { return }
-        container.acceptShareInvitations(from: [metadata], into: sharedStore) { _, error in
+        let zoneName = metadata.share.recordID.zoneID.zoneName
+        container.acceptShareInvitations(from: [metadata], into: sharedStore) { @Sendable _, error in
             if let error {
                 logger.error("Accepting share failed: \(error.localizedDescription, privacy: .public)")
             } else {
-                logger.info("Accepted shared list \(metadata.share.recordID.zoneID.zoneName, privacy: .public)")
+                logger.info("Accepted shared list \(zoneName, privacy: .public)")
             }
         }
     }
