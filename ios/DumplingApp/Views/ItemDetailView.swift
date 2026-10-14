@@ -371,7 +371,7 @@ struct ItemDetailView: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(OutlinedButtonStyle(prominent: true))
                     .disabled(isFiling || (category == .event && item.relevantDate == nil))
                 }
                 if !item.isFiled {
@@ -381,7 +381,7 @@ struct ItemDetailView: View {
                     } label: {
                         Label("Save for Later", systemImage: "bookmark").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(OutlinedButtonStyle())
                 }
                 shareButton
                 if item.isArchived {
@@ -391,7 +391,7 @@ struct ItemDetailView: View {
                     } label: {
                         Label("Unarchive", systemImage: "tray.and.arrow.up").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(OutlinedButtonStyle())
                 } else if item.isSavedForLater || isMissingFromCalendar {
                     Button {
                         item.moveToInbox()
@@ -399,7 +399,7 @@ struct ItemDetailView: View {
                     } label: {
                         Label("Move to Inbox", systemImage: "tray.and.arrow.up").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(OutlinedButtonStyle())
                 } else if !item.isFiled {
                     Button {
                         item.archivedAt = .now
@@ -407,7 +407,7 @@ struct ItemDetailView: View {
                     } label: {
                         Label("Archive", systemImage: "archivebox").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(OutlinedButtonStyle())
                 }
             }
             .controlSize(.large)
@@ -431,7 +431,7 @@ struct ItemDetailView: View {
                 ShareLink(item: text, subject: Text(item.displayTitle)) { label }
             }
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(OutlinedButtonStyle())
     }
 
     private func fileNow() async {
@@ -527,5 +527,26 @@ private struct ListLabel: View {
         ListIcon(list: list, size: 22)
             .frame(width: 22)
         Text(list.name)
+    }
+}
+
+/// Outlined buttons for item details. On the plain background (no card), filled buttons felt too heavy.
+/// `prominent` is the main action: tinted outline and text.
+struct OutlinedButtonStyle: ButtonStyle {
+    var prominent = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(prominent ? .semibold : .regular))
+            .foregroundStyle(prominent ? Color.accentColor : Color(.label))
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .contentShape(.capsule)
+            .overlay {
+                Capsule()
+                    .strokeBorder(prominent ? Color.accentColor : Color(.systemGray3), lineWidth: prominent ? 1.5 : 1)
+            }
+            .opacity(configuration.isPressed ? 0.55 : isEnabled ? 1 : 0.4)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
