@@ -418,51 +418,26 @@ struct ItemsBottomControls: View {
     }
 
     var body: some View {
-        // With a single category, All and that category show the same items, so the row is left out.
-        let showsFilters = available.count > 1
+        // With a single category, All and that category show the same items, so the row is left out, except
+        // for places: a lone Location chip stays, as the way to the map.
+        let placesOnly = available == [.location]
         VStack(spacing: 12) {
             if showingMap, let pin = ItemsMapView.pins(for: visible).first(where: { $0.id == selectedPin }) {
                 PlaceCard(item: pin.item, coordinate: pin.coordinate, userLocation: userLocation)
                     .padding(.horizontal, 16)
                     .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
             }
-            if Self.showsMap(filter: filter, available: available) {
-                MapListToggle(showingMap: $showingMap)
-                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                    .padding(.bottom, showsFilters ? 0 : CategoryFilterBar.bottomPadding)
-            }
-            if showsFilters {
-                CategoryFilterBar(selection: $filter, available: available)
+            if placesOnly {
+                // Always shown selected; tapping it switches between list and map.
+                CategoryFilterBar(selection: .constant(.location), available: available,
+                                  showingMap: $showingMap, showsAll: false)
+            } else if available.count > 1 {
+                CategoryFilterBar(selection: $filter, available: available,
+                                  showingMap: Self.showsMap(filter: filter, available: available) ? $showingMap : nil)
             }
         }
         .animation(.easeOut(duration: 0.2), value: selectedPin)
         .animation(.snappy(duration: 0.2), value: filter)
-    }
-}
-
-/// Floating Map / List switch, centered above the filter row while Location is selected.
-struct MapListToggle: View {
-    @Binding var showingMap: Bool
-
-    var body: some View {
-        Button {
-            showingMap.toggle()
-        } label: {
-            HStack(spacing: 6) {
-                Text(showingMap ? "List" : "Map")
-                Image(systemName: showingMap ? "list.bullet" : "map.fill")
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Color(.systemBackground))
-            .padding(.horizontal, 18)
-            .frame(height: 40)
-            .background(Color(.label), in: .capsule)
-            .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
-        }
-        .buttonStyle(.plain)
-        .sensoryFeedback(.selection, trigger: showingMap)
-        .accessibilityLabel(showingMap ? "Show as List" : "Show on Map")
     }
 }
 

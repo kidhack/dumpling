@@ -4,6 +4,10 @@ import SwiftUI
 struct CategoryFilterBar: View {
     @Binding var selection: CategoryKind?
     let available: [CategoryKind]
+    /// With places to show: tapping the selected Location chip again switches between list and map.
+    var showingMap: Binding<Bool>?
+    /// Off when everything is one category, where All would show the same items.
+    var showsAll = true
 
     /// Shared with the Select mode action bar so switching between them doesn't move anything.
     static let chipHeight: CGFloat = 36
@@ -44,7 +48,9 @@ struct CategoryFilterBar: View {
         GlassEffectContainer(spacing: 5) {
             HStack(spacing: 5) {
                 // All is neutral, like Mail: black in light mode, white in dark; the categories carry the color.
+                if showsAll {
                 chip(nil, label: "All", systemImage: "square.stack", tint: Color(.label), stretch: stretchSelected)
+            }
                 ForEach(available) { kind in
                     chip(kind, label: kind.label, systemImage: kind.systemImage, tint: kind.tint, stretch: stretchSelected)
                 }
@@ -54,8 +60,13 @@ struct CategoryFilterBar: View {
 
     private func chip(_ kind: CategoryKind?, label: String, systemImage: String, tint: Color, stretch: Bool) -> some View {
         let isSelected = selection == kind
+        let mapToggle = kind == .location && isSelected ? showingMap : nil
         return Button {
-            selection = kind
+            if let mapToggle {
+                mapToggle.wrappedValue.toggle()
+            } else {
+                selection = kind
+            }
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: systemImage)
@@ -64,6 +75,13 @@ struct CategoryFilterBar: View {
                     Text(label)
                         .font(.subheadline.weight(.semibold))
                         .fixedSize()
+                }
+                // The hint that tapping again switches views: the map icon on the list, the list icon on the map.
+                if let mapToggle {
+                    Image(systemName: mapToggle.wrappedValue ? "list.bullet" : "map")
+                        .font(.footnote.weight(.semibold))
+                        .contentTransition(.symbolEffect(.replace))
+                        .opacity(0.85)
                 }
             }
             .foregroundStyle(isSelected ? (kind == nil ? Color(.systemBackground) : .white) : tint)
@@ -77,7 +95,9 @@ struct CategoryFilterBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+        .accessibilityHint(mapToggle.map { $0.wrappedValue ? "Shows the list" : "Shows the map" } ?? "")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .sensoryFeedback(.selection, trigger: isSelected)
+        .sensoryFeedback(.selection, trigger: mapToggle?.wrappedValue ?? false)
     }
 }
