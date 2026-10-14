@@ -16,6 +16,7 @@ struct ItemsMapView: View {
     @State private var lookedUp: [UUID: CLLocationCoordinate2D] = [:]
     @State private var isLookingUp = true
     @State private var notFound: [Item] = []
+    @Namespace private var mapScope
     /// Places pinned to a city center before lookups searched by name get one more try.
     private static let recheckedKey = "recheckedCityPins.v1"
 
@@ -38,7 +39,7 @@ struct ItemsMapView: View {
     private var pins: [Pin] { Self.pins(for: items, lookedUp: lookedUp) }
 
     var body: some View {
-        Map(position: $position, selection: $selection) {
+        Map(position: $position, selection: $selection, scope: mapScope) {
             ForEach(pins) { pin in
                 Marker(pin.item.displayTitle, systemImage: CategoryKind.location.systemImage,
                        coordinate: pin.coordinate)
@@ -47,11 +48,8 @@ struct ItemsMapView: View {
             }
             UserAnnotation()
         }
-        // Tapping the location button asks for permission the first time.
-        .mapControls {
-            MapUserLocationButton()
-            MapCompass()
-        }
+        // The map's own corner controls would land under the header; the buttons are placed below instead.
+        .mapControls {}
         // Runs edge to edge, under the header and filter row.
         .ignoresSafeArea()
         .overlay(alignment: .top) {
@@ -70,6 +68,17 @@ struct ItemsMapView: View {
                 .buttonStyle(.plain)
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            // Level with the Map / List pill. Tapping it asks for location permission the first time.
+            VStack(spacing: 8) {
+                MapCompass(scope: mapScope)
+                MapUserLocationButton(scope: mapScope)
+            }
+            .buttonBorderShape(.circle)
+            .padding(.trailing, 16)
+            .padding(.bottom, 4)
+        }
+        .mapScope(mapScope)
         .task { await lookUpMissing() }
         .task { await followUser() }
     }
