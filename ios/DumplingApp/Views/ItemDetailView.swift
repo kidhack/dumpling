@@ -53,23 +53,21 @@ struct ItemDetailView: View {
         // which made the list jump when coming back from an item.
         .screenHeader {
             ScreenHeader {
-                Button {
-                    dismiss()
-                } label: {
-                    HStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button {
+                        dismiss()
+                    } label: {
                         Image(systemName: "chevron.left")
                             .font(.title3.weight(.semibold))
-                        Text(item.displayTitle)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
+                            .headerGlassCircle()
                     }
-                    .frame(minHeight: 44)
-                    .contentShape(.rect)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Back")
+                    Text(item.displayTitle)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .headerGlass(interactive: false)
                 }
-                .buttonStyle(.plain)
-                .padding(.leading, -8)
-                .accessibilityLabel("Back")
             } trailing: {
                 Button(action: toggleHeart) {
                     HeartGlyph(mine: shownHeart, others: item.otherHeartCount,
@@ -78,8 +76,7 @@ struct ItemDetailView: View {
                         .symbolEffect(.bounce, value: shownHeart)
                         .scaleEffect(isSavingHeart ? 1.12 : 1)
                         .animation(.spring(response: 0.25, dampingFraction: 0.5), value: shownHeart)
-                        .frame(width: 44, height: 44)
-                        .contentShape(.rect)
+                        .headerGlassCircle()
                 }
                 .buttonStyle(.plain)
                 .sensoryFeedback(.impact(weight: .light), trigger: shownHeart)

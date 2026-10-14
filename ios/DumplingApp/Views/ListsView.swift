@@ -48,8 +48,7 @@ struct ListsView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.title3.weight(.semibold))
-                            .frame(width: 44, height: 44)
-                            .contentShape(.rect)
+                            .headerGlassCircle()
                     }
                     .accessibilityLabel("New List")
                 }
@@ -224,8 +223,7 @@ struct ListDetailView: View {
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.title3.weight(.semibold))
-                        .frame(minWidth: 28, minHeight: 44)
-                        .contentShape(.rect)
+                        .headerGlassCircle()
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Back to Lists")
@@ -240,17 +238,13 @@ struct ListDetailView: View {
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                     }
-                    .frame(minHeight: 44)
-                    .contentShape(.rect)
+                    .padding(.leading, -8)
+                    .headerGlass()
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(list.name), List Details")
             }
-            // Over the map, on glass so it reads against streets and labels.
-            .padding(.trailing, showingMap ? 14 : 0)
-            .padding(.leading, showingMap ? 6 : 0)
-            .glassEffect(showingMap ? .regular : .identity, in: .capsule)
-            .padding(.leading, showingMap ? -14 : -8)
+
         } trailing: {
             Menu {
                 if Sharing.isOwner(of: list) {
@@ -273,9 +267,7 @@ struct ListDetailView: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.title3.weight(.semibold))
-                    .frame(width: 44, height: 44)
-                    .glassEffect(showingMap ? .regular : .identity, in: .circle)
-                    .contentShape(.rect)
+                    .headerGlassCircle()
             }
             .accessibilityLabel("List Options")
         }

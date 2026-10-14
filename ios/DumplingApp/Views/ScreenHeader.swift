@@ -11,9 +11,25 @@ struct ScreenHeader<Leading: View, Trailing: View>: View {
             Spacer(minLength: 8)
             trailing
         }
-        .padding(.leading, 20)
-        .padding(.trailing, 8)
+        .padding(.horizontal, 16)
         .frame(height: 44)
+    }
+}
+
+extension View {
+    /// Header titles and text buttons sit on Liquid Glass, like the tab bar.
+    func headerGlass(interactive: Bool = true) -> some View {
+        padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .contentShape(.capsule)
+            .glassEffect(interactive ? .regular.interactive() : .regular, in: .capsule)
+    }
+
+    /// Header icon buttons: a glass circle.
+    func headerGlassCircle() -> some View {
+        frame(width: 44, height: 44)
+            .contentShape(.circle)
+            .glassEffect(.regular.interactive(), in: .circle)
     }
 }
 

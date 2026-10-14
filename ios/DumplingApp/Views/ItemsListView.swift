@@ -209,11 +209,7 @@ struct ItemsListView: View {
             if section == .inbox {
                 Text("Dumpling")
                     .font(.title2.bold())
-                    // Over the map, the header sits on glass so it reads against streets and labels.
-                    .padding(.horizontal, showingMap ? 14 : 0)
-                    .frame(height: 44)
-                    .glassEffect(showingMap ? .regular : .identity, in: .capsule)
-                    .padding(.leading, showingMap ? -14 : 0)
+                    .headerGlass(interactive: false)
             }
         } trailing: {
             if !inSection.isEmpty && !showingMap {
@@ -221,8 +217,8 @@ struct ItemsListView: View {
                     if isSelecting { endSelecting() } else { editMode = .active }
                 }
                 .fontWeight(isSelecting ? .semibold : .regular)
-                .frame(minHeight: 44)
-                .padding(.horizontal, 8)
+                .buttonStyle(.plain)
+                .headerGlass()
             }
             if section == .inbox {
                 Menu {
@@ -230,9 +226,7 @@ struct ItemsListView: View {
                     Button("Settings", systemImage: "gearshape") { showingSettings = true }
                 } label: {
                     MenuTwoLineIcon()
-                        .frame(width: 44, height: 44)
-                        .glassEffect(showingMap ? .regular : .identity, in: .circle)
-                        .contentShape(.rect)
+                        .headerGlassCircle()
                 }
                 .accessibilityLabel("Menu")
             }
