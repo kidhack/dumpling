@@ -62,6 +62,7 @@ struct ItemsListView: View {
     @State private var selection = Set<UUID>()
     @State private var listPickerItems: [Item] = []
     @State private var showingListPicker = false
+    @State private var confirmingDelete = false
     @State private var showingMap = false
     @State private var selectedPin: UUID?
     @State private var showsMapHint = false
@@ -174,7 +175,14 @@ struct ItemsListView: View {
 
     private var header: some View {
         ScreenHeader {
-            if section == .inbox {
+            if isSelecting {
+                // Like Mail: select everything showing (the current filter), or clear it.
+                Button(allSelected ? "Deselect All" : "Select All") {
+                    selection = allSelected ? [] : Set(visible.map(\.id))
+                }
+                .buttonStyle(.plain)
+                .headerGlass()
+            } else if section == .inbox {
                 // A title, not a button, so no glass.
                 Text("Dumpling")
                     .font(.title2.bold())
@@ -219,13 +227,25 @@ struct ItemsListView: View {
 
     // MARK: - Selection
 
+    private var allSelected: Bool { !visible.isEmpty && selection.isSuperset(of: visible.map(\.id)) }
+
     private var selectionBar: some View {
         HStack {
-            Button {
-                listPickerItems = selectedItems
-                showingListPicker = true
-            } label: {
-                Label("Move to List", systemImage: "list.bullet")
+            if section == .archived {
+                // Archived is where things get cleared out for good.
+                Button(role: .destructive) {
+                    confirmingDelete = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .tint(.red)
+            } else {
+                Button {
+                    listPickerItems = selectedItems
+                    showingListPicker = true
+                } label: {
+                    Label("Move to List", systemImage: "list.bullet")
+                }
             }
             Spacer()
             Text(selection.isEmpty ? "Select Items" : "\(selection.count) Selected")
@@ -243,6 +263,16 @@ struct ItemsListView: View {
             }
         }
         .disabled(selection.isEmpty)
+        .confirmationDialog(selection.count == 1 ? "Delete 1 Item?" : "Delete \(selection.count) Items?",
+                            isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                for item in selectedItems { modelContext.delete(item) }
+                try? modelContext.save()
+                endSelecting()
+            }
+        } message: {
+            Text("This can't be undone.")
+        }
         // Same footprint as the filter row it replaces, so entering Select moves nothing.
         .frame(height: CategoryFilterBar.chipHeight)
         .padding(.horizontal, 20)
