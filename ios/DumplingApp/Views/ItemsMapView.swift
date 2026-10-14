@@ -7,6 +7,8 @@ import SwiftUI
 struct ItemsMapView: View {
     let items: [Item]
     @Binding var selection: UUID?
+    /// Where the user is, once they've allowed it; for distances on the place card.
+    @Binding var userLocation: CLLocation?
 
     @Environment(\.managedObjectContext) private var context
     @State private var position: MapCameraPosition = .automatic
@@ -39,8 +41,13 @@ struct ItemsMapView: View {
                     .tint(CategoryKind.location.tint)
                     .tag(pin.id)
             }
+            UserAnnotation()
         }
-        .mapControls { MapCompass() }
+        // Tapping the location button asks for permission the first time.
+        .mapControls {
+            MapUserLocationButton()
+            MapCompass()
+        }
         // Runs under the header and filter row, which fade it out at the edges.
         .ignoresSafeArea()
         .overlay {
@@ -51,6 +58,18 @@ struct ItemsMapView: View {
             }
         }
         .task { await lookUpMissing() }
+        .task { await followUser() }
+    }
+
+    /// Updates only after real movement, so the card's distance doesn't re-render on every GPS tick.
+    private func followUser() async {
+        do {
+            for try await update in CLLocationUpdate.liveUpdates() {
+                guard let location = update.location else { continue }
+                if let current = userLocation, current.distance(from: location) < 20 { continue }
+                userLocation = location
+            }
+        } catch {}
     }
 
     /// Finds coordinates for items with an address but no map position, saving them where the user can.
@@ -76,6 +95,14 @@ struct ItemsMapView: View {
 struct PlaceCard: View {
     let item: Item
     let coordinate: CLLocationCoordinate2D
+    var userLocation: CLLocation?
+
+    private var distance: String? {
+        guard let userLocation else { return nil }
+        let meters = userLocation.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+        return Measurement(value: meters, unit: UnitLength.meters)
+            .formatted(.measurement(width: .abbreviated, usage: .road)) + " away"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -88,6 +115,11 @@ struct PlaceCard: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
+                }
+                if let distance {
+                    Text(distance)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
             }
             HStack(spacing: 10) {

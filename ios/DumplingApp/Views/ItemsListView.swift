@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import CoreLocation
 import FoundationModels
 
 enum ItemsSection: String, CaseIterable, Identifiable {
@@ -67,6 +68,7 @@ struct ItemsListView: View {
     @State private var showingListPicker = false
     @State private var showingMap = false
     @State private var selectedPin: UUID?
+    @State private var userLocation: CLLocation?
 
     private var isSelecting: Bool { editMode.isEditing }
     private var inSection: [Item] { items.filter(section.contains) }
@@ -142,7 +144,7 @@ struct ItemsListView: View {
             }
             .overlay {
                 if showingMap {
-                    ItemsMapView(items: visible, selection: $selectedPin)
+                    ItemsMapView(items: visible, selection: $selectedPin, userLocation: $userLocation)
                         .transition(.opacity)
                 }
             }
@@ -175,7 +177,7 @@ struct ItemsListView: View {
                 } else if !inSection.isEmpty {
                     VStack(spacing: 0) {
                         if showingMap, let pin = ItemsMapView.pins(for: visible).first(where: { $0.id == selectedPin }) {
-                            PlaceCard(item: pin.item, coordinate: pin.coordinate)
+                            PlaceCard(item: pin.item, coordinate: pin.coordinate, userLocation: userLocation)
                                 .padding(.horizontal, 16)
                                 .padding(.bottom, CategoryFilterBar.mapButtonClearance + 8)
                                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
