@@ -72,10 +72,12 @@ struct ContentView: View {
             NavigationStack { ItemDetailView(item: item, filer: pipeline.filer) }
         }
         .task {
+            NearbyAlerts.shared.appBecame(active: scenePhase == .active)
             await Hearts.prepare(modelContext)
             await pipeline.refresh(modelContext)
         }
         .onChange(of: scenePhase) { _, phase in
+            NearbyAlerts.shared.appBecame(active: phase == .active)
             if phase == .active {
                 Task { await pipeline.refresh(modelContext) }
                 // Re-pick the closest places to watch for where the user is now.

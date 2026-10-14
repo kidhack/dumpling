@@ -384,12 +384,36 @@ struct ItemRowView: View {
             }
 
             Spacer(minLength: 0)
+            NearbyBadge(item: item)
             if item.heartCount > 0 {
                 HeartGlyph(mine: item.heartedByMe, others: item.otherHeartCount)
                     .font(.subheadline)
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// On places with Notify Me Nearby on: a gray arrow, or green with the distance when the user is within range.
+struct NearbyBadge: View {
+    let item: Item
+
+    var body: some View {
+        let alerts = NearbyAlerts.shared
+        if alerts.isWatching(item) {
+            let close = alerts.isClose(to: item)
+            HStack(spacing: 3) {
+                Image(systemName: "location.fill")
+                if close, let meters = alerts.distance(to: item) {
+                    Text(NearbyAlerts.format(meters))
+                        .monospacedDigit()
+                }
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(close ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
+            .accessibilityElement()
+            .accessibilityLabel(close ? "Nearby" : "Notify me nearby is on")
+        }
     }
 }
 

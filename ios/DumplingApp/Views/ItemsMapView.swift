@@ -100,8 +100,7 @@ struct PlaceCard: View {
     private var distance: String? {
         guard let userLocation else { return nil }
         let meters = userLocation.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
-        return Measurement(value: meters, unit: UnitLength.meters)
-            .formatted(.measurement(width: .abbreviated, usage: .road)) + " away"
+        return NearbyAlerts.format(meters) + " away"
     }
 
     var body: some View {

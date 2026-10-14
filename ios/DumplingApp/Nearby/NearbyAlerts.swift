@@ -36,9 +36,13 @@ final class NearbyAlerts: NSObject {
     private(set) var authorization: CLAuthorizationStatus
     /// The item a tapped notification asks to show.
     var openItemID: UUID?
+    /// Where the user is while Dumpling is open and watching places, for the rows' "you're close" state.
+    private(set) var currentLocation: CLLocation?
 
     @ObservationIgnored private let manager = CLLocationManager()
     @ObservationIgnored private var monitor: CLMonitor?
+    @ObservationIgnored private var isAppActive = false
+    @ObservationIgnored private var followTask: Task<Void, Never>?
 
     override init() {
         authorization = manager.authorizationStatus
@@ -51,6 +55,48 @@ final class NearbyAlerts: NSObject {
     }
 
     func isWatching(_ item: Item) -> Bool { watches[item.id] != nil }
+
+    /// Distance to a watched place, once the user's location is known.
+    func distance(to item: Item) -> CLLocationDistance? {
+        guard let watch = watches[item.id], let currentLocation else { return nil }
+        return currentLocation.distance(from: watch.location)
+    }
+
+    func isClose(to item: Item) -> Bool { distance(to: item).map { $0 <= Self.radius } ?? false }
+
+    /// "0.2 mi" or "300 m", in the user's units.
+    static func format(_ meters: CLLocationDistance) -> String {
+        Measurement(value: meters, unit: UnitLength.meters).formatted(.measurement(width: .abbreviated, usage: .road))
+    }
+
+    // MARK: - Following the user while the app is open
+
+    func appBecame(active: Bool) {
+        isAppActive = active
+        updateFollowing()
+    }
+
+    /// Follows the user only while Dumpling is open, places are watched, and location is allowed.
+    private func updateFollowing() {
+        let allowed = authorization == .authorizedAlways || authorization == .authorizedWhenInUse
+        guard isAppActive, allowed, !watches.isEmpty else {
+            followTask?.cancel()
+            followTask = nil
+            currentLocation = nil
+            return
+        }
+        guard followTask == nil else { return }
+        followTask = Task {
+            do {
+                for try await update in CLLocationUpdate.liveUpdates(.otherNavigation) {
+                    guard let location = update.location else { continue }
+                    // Only after real movement, so rows don't re-render on every GPS tick.
+                    if let current = currentLocation, current.distance(from: location) < 20 { continue }
+                    currentLocation = location
+                }
+            } catch {}
+        }
+    }
 
     // MARK: - Turning it on and off
 
@@ -66,6 +112,7 @@ final class NearbyAlerts: NSObject {
         if let here = manager.location, here.distance(from: watch.location) < Self.radius { watch.lastAlert = .now }
         watches[item.id] = watch
         save()
+        updateFollowing()
         // Notifications with Dumpling closed need Always. iOS asks once; after that it's in Settings.
         if authorization != .authorizedAlways { manager.requestAlwaysAuthorization() }
         await sync()
@@ -85,6 +132,7 @@ final class NearbyAlerts: NSObject {
     func unwatch(_ item: Item) async {
         watches[item.id] = nil
         save()
+        updateFollowing()
         await sync()
     }
 
@@ -184,6 +232,9 @@ final class NearbyAlerts: NSObject {
 extension NearbyAlerts: CLLocationManagerDelegate {
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
-        Task { @MainActor in self.authorization = status }
+        Task { @MainActor in
+            self.authorization = status
+            self.updateFollowing()
+        }
     }
 }
