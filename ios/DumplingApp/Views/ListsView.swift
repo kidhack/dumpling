@@ -38,7 +38,7 @@ struct ListsView: View {
                     }
                 }
             }
-            .listSectionSpacing(10)
+            .cardList()
             .screenHeader {
                 ScreenHeader {
                     EmptyView()
@@ -168,7 +168,7 @@ struct ListDetailView: View {
                 }
             }
         }
-        .listSectionSpacing(10)
+        .cardList()
         // As in the sections: on the map, the header and bottom controls are plain insets on the map.
         .overlay {
             if showingMap {

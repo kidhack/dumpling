@@ -18,6 +18,13 @@ struct ScreenHeader<Leading: View, Trailing: View>: View {
 }
 
 extension View {
+    /// The card list style shared by every items screen: spacing between cards, and the soft edge under the
+    /// bars everywhere (left to itself, iOS sometimes picked the hard edge, a dark band behind the bottom bar).
+    func cardList() -> some View {
+        listSectionSpacing(10)
+            .scrollEdgeEffectStyle(.soft, for: .all)
+    }
+
     /// Pins `header` above a scrolling list, with the system's soft edge effect beneath it.
     func screenHeader<Header: View>(@ViewBuilder _ header: () -> Header) -> some View {
         modifier(ScreenHeaderModifier(header: header()))

@@ -48,6 +48,7 @@ struct ItemDetailView: View {
 
             buttons
         }
+        .scrollEdgeEffectStyle(.soft, for: .all)
         // The same custom header as the lists: swapping the system bar in and out changed the top inset,
         // which made the list jump when coming back from an item.
         .screenHeader {
