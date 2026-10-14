@@ -11,6 +11,9 @@ struct ItemDetailView: View {
     @State private var isFiling = false
     @State private var accessRefresh = 0
     @State private var showingListPicker = false
+    /// What the user just tapped, shown until the saved hearts catch up (iCloud can take a moment).
+    @State private var pendingHeart: Bool?
+    @State private var isSavingHeart = false
     @Environment(\.dismiss) private var dismiss
 
     private var category: ItemCategory {
@@ -67,18 +70,19 @@ struct ItemDetailView: View {
                 .padding(.leading, -8)
                 .accessibilityLabel("Back")
             } trailing: {
-                Button {
-                    Task { await Hearts.toggle(item, in: modelContext) }
-                } label: {
-                    HeartGlyph(mine: item.heartedByMe, others: item.otherHeartCount,
+                Button(action: toggleHeart) {
+                    HeartGlyph(mine: shownHeart, others: item.otherHeartCount,
                                background: Color(.systemGroupedBackground))
                         .font(.title3)
+                        .symbolEffect(.bounce, value: shownHeart)
+                        .scaleEffect(isSavingHeart ? 1.12 : 1)
+                        .animation(.spring(response: 0.25, dampingFraction: 0.5), value: shownHeart)
                         .frame(width: 44, height: 44)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .sensoryFeedback(.impact(weight: .light), trigger: item.heartedByMe)
-                .accessibilityLabel(item.heartedByMe ? "Remove Heart" : "Heart")
+                .sensoryFeedback(.impact(weight: .light), trigger: shownHeart)
+                .accessibilityLabel(shownHeart ? "Remove Heart" : "Heart")
             }
         }
         .navigationTitle(item.displayTitle)
@@ -113,6 +117,25 @@ struct ItemDetailView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(item.list.map { "List: \($0.name)" } ?? "Add to List")
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+    }
+
+    private var shownHeart: Bool { pendingHeart ?? item.heartedByMe }
+
+    /// Flips the heart immediately and ignores taps until the save finishes, so a second tap
+    /// during the iCloud round trip can't undo the first.
+    private func toggleHeart() {
+        guard !isSavingHeart else { return }
+        pendingHeart = !item.heartedByMe
+        isSavingHeart = true
+        Task {
+            await Hearts.toggle(item, in: modelContext)
+            isSavingHeart = false
+            // Keep showing the choice until the saved state agrees, then hand back to it.
+            for _ in 0..<20 where item.heartedByMe != pendingHeart {
+                try? await Task.sleep(for: .milliseconds(150))
+            }
+            pendingHeart = nil
+        }
     }
 
     private func resort() async {
