@@ -144,7 +144,8 @@ struct ListDetailView: View {
 
     private var canEdit: Bool { Sharing.canEdit(list) }
 
-    private var items: [Item] { list.itemsArray.sorted { $0.timestamp > $1.timestamp } }
+    /// Newest first; archived items are in Archived, not here.
+    private var items: [Item] { list.activeItems.sorted { $0.timestamp > $1.timestamp } }
 
     private var availableFilters: [CategoryKind] { ItemsBottomControls.filters(for: items, keeping: filter) }
 

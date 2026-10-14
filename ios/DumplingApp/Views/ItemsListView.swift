@@ -16,8 +16,9 @@ enum ItemsSection: String, CaseIterable, Identifiable {
     }
 
     func contains(_ item: Item) -> Bool {
-        // Items from lists others shared only appear inside those lists.
-        if item.isFromSharedList { return false }
+        // Items from lists others shared only appear inside those lists, except once archived: archived
+        // items leave their list, so Archived is where to find them.
+        if item.isFromSharedList && self != .archived { return false }
         switch self {
         case .inbox: return item.isInInbox
         case .filed: return item.isInFiled
@@ -275,6 +276,11 @@ struct ItemRowView: View {
                     Label(item.statusLabel, systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.orange)
+                } else if section == .archived, let list = item.list {
+                    // Unarchiving puts it back in this list.
+                    Label(list.name, systemImage: "list.bullet")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 } else if item.status != "kept" && item.status != "pending" {
                     Text(item.statusLabel)
                         .font(.caption)

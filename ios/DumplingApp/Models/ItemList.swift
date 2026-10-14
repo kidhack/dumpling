@@ -17,8 +17,11 @@ final class ItemList: NSManagedObject {
         NSFetchRequest<ItemList>(entityName: "ItemList")
     }
 
+    /// Every item, archived ones included (they keep their list, so unarchiving puts them back).
     var itemsArray: [Item] { (items?.allObjects as? [Item]) ?? [] }
-    var itemCount: Int { items?.count ?? 0 }
+    /// What the list shows: archived items appear only in Archived.
+    var activeItems: [Item] { itemsArray.filter { !$0.isArchived } }
+    var itemCount: Int { activeItems.count }
 
     convenience init(context: NSManagedObjectContext, name: String) {
         self.init(context: context)
