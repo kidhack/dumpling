@@ -62,9 +62,9 @@ struct ItemTrailingSwipeActions: View {
         } label: {
             Label(item.isFiled ? "Remove" : "Delete", systemImage: "trash")
         }
-        if item.isArchived {
+        if item.isInArchive {
             Button {
-                item.archivedAt = nil
+                item.unarchive()
                 try? modelContext.save()
             } label: {
                 Label("Unarchive", systemImage: "tray.and.arrow.up")

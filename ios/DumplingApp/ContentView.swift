@@ -1,45 +1,26 @@
 import SwiftUI
 import CoreData
 
+/// Like Mail: one stack with the Lists screen at its root, opened on the Inbox (its back arrow goes to Lists).
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var pipeline = ItemPipeline()
-    @State private var selection: AppTab = Self.launchTab
-    @State private var filterResets: [ItemsSection: Int] = [:]
-    @State private var listsReset = 0
+    @State private var path = Self.launchPath
 
-    /// Tapping the tab you're already on resets its filter to All and scrolls it to the top.
-    private var tabSelection: Binding<AppTab> {
-        Binding {
-            selection
-        } set: { tapped in
-            if tapped == selection {
-                switch tapped {
-                case .section(let section): filterResets[section, default: 0] += 1
-                case .lists: listsReset += 1
-                }
-            }
-            selection = tapped
-        }
-    }
-
-    enum AppTab: Hashable {
-        case section(ItemsSection)
-        case lists
-    }
-
-    /// Debug builds can open on a given tab (env DUMPLING_START_TAB=lists) so screens can be checked without tapping.
-    private static var launchTab: AppTab {
+    /// Debug builds can open on another screen (env DUMPLING_START_TAB=lists, saved, favorites or archived) so
+    /// screens can be checked without tapping.
+    private static var launchPath: NavigationPath {
         #if DEBUG
         switch ProcessInfo.processInfo.environment["DUMPLING_START_TAB"] {
-        case "lists": return .lists
-        case "filed": return .section(.filed)
-        case "archived": return .section(.archived)
+        case "lists": return NavigationPath()
+        case "saved": return NavigationPath([ItemsSection.saved])
+        case "favorites": return NavigationPath([ItemsSection.favorites])
+        case "archived", "filed": return NavigationPath([ItemsSection.archived])
         default: break
         }
         #endif
-        return .section(.inbox)
+        return NavigationPath([ItemsSection.inbox])
     }
 
     /// The item a tapped nearby notification asks to show.
@@ -52,20 +33,11 @@ struct ContentView: View {
     }
 
     var body: some View {
-        TabView(selection: tabSelection) {
-            Tab(ItemsSection.inbox.rawValue, systemImage: ItemsSection.inbox.systemImage, value: AppTab.section(.inbox)) {
-                ItemsListView(section: .inbox, filterResetToken: filterResets[.inbox, default: 0],
-                              isActiveTab: selection == .section(.inbox))
-            }
-            Tab("Lists", systemImage: "list.bullet", value: AppTab.lists) {
-                ListsView(resetToken: listsReset, isActiveTab: selection == .lists)
-            }
-            ForEach([ItemsSection.filed, .archived]) { section in
-                Tab(section.rawValue, systemImage: section.systemImage, value: AppTab.section(section)) {
-                    ItemsListView(section: section, filterResetToken: filterResets[section, default: 0],
-                              isActiveTab: selection == .section(section))
-                }
-            }
+        NavigationStack(path: $path) {
+            ListsView(path: $path)
+                .navigationDestination(for: ItemsSection.self) { ItemsListView(section: $0) }
+                .navigationDestination(for: ItemList.self) { ListDetailView(list: $0) }
+                .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: pipeline.filer) }
         }
         .environment(pipeline)
         .sheet(item: notifiedItem) { item in

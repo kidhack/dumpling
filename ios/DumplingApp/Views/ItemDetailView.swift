@@ -149,7 +149,7 @@ struct ItemDetailView: View {
         filer.rename(id: id, to: item.displayTitle)
     }
 
-    private var homeSection: ItemsSection { item.isArchived ? .archived : item.isFiled ? .filed : .inbox }
+    private var homeSection: ItemsSection { item.isInArchive ? .archived : item.isSavedForLater ? .saved : .inbox }
 
     /// When the item was added and last edited, and by whom on a shared list.
     private var attribution: some View {
@@ -451,7 +451,7 @@ struct ItemDetailView: View {
                 shareButton
                 if item.isArchived {
                     Button {
-                        item.archivedAt = nil
+                        item.unarchive()
                         dismiss()
                     } label: {
                         Label("Unarchive", systemImage: "tray.and.arrow.up").frame(maxWidth: .infinity)

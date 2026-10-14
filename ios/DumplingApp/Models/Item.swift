@@ -162,7 +162,14 @@ final class Item: NSManagedObject {
     /// Open items: not filed, archived, or put in a list (a list is where it was filed to).
     var isInInbox: Bool { !isFiled && !isArchived && list == nil }
     /// Filed items that haven't been archived.
-    var isInFiled: Bool { isFiled && !isArchived }
+    /// In the Archive: archived, or sent to Calendar or Reminders (which is where those live now).
+    var isInArchive: Bool { isArchived || (isFiled && !isSavedForLater) }
+
+    /// Out of the Archive and back to the Inbox. Filed items let go of their Calendar or Reminders link.
+    func unarchive() {
+        archivedAt = nil
+        if isFiled && !isSavedForLater { moveToInbox() }
+    }
 
     var preview: String {
         if let url = contentURL { return url }

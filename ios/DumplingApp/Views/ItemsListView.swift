@@ -3,59 +3,66 @@ import CoreData
 import CoreLocation
 import FoundationModels
 
-enum ItemsSection: String, CaseIterable, Identifiable {
-    case inbox = "Inbox", filed = "Filed", archived = "Archived"
+/// The built-in lists: tiles at the top of the Lists screen. Inbox is where the app opens.
+enum ItemsSection: String, CaseIterable, Identifiable, Hashable {
+    case inbox = "Inbox", favorites = "Favorites", saved = "Saved", archived = "Archive"
     var id: Self { self }
 
     var systemImage: String {
         switch self {
-        case .inbox: return "tray"
-        case .filed: return "calendar.badge.checkmark"
-        case .archived: return "archivebox"
+        case .inbox: return "tray.fill"
+        case .favorites: return "heart.fill"
+        case .saved: return "bookmark.fill"
+        case .archived: return "archivebox.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .inbox: return Color(light: 0x0062CC, dark: 0x0A84FF)
+        case .favorites: return Color(light: 0xD70015, dark: 0xFF453A)
+        case .saved: return Color(light: 0x5856D6, dark: 0x7D7AFF)
+        case .archived: return Color(light: 0x6C6C70, dark: 0x98989D)
         }
     }
 
     func contains(_ item: Item) -> Bool {
-        // Items from lists others shared only appear inside those lists, except once archived: archived
-        // items leave their list, so Archived is where to find them.
-        if item.isFromSharedList && self != .archived { return false }
         switch self {
-        case .inbox: return item.isInInbox
-        case .filed: return item.isInFiled
-        case .archived: return item.isArchived
+        // Items from lists others shared only appear inside those lists, and in Favorites and Archive.
+        case .inbox: return !item.isFromSharedList && item.isInInbox
+        case .favorites: return item.heartedByMe && !item.isInArchive
+        case .saved: return !item.isFromSharedList && item.isSavedForLater && !item.isArchived
+        // Archive also holds what was sent to Calendar or Reminders: those live there now.
+        case .archived: return item.isInArchive
         }
     }
 
     var emptyTitle: String {
         switch self {
         case .inbox: return "Inbox Zero"
-        case .filed: return "Nothing Filed Yet"
-        case .archived: return "No Archived Items"
+        case .favorites: return "No Favorites"
+        case .saved: return "Nothing Saved"
+        case .archived: return "Nothing Archived"
         }
     }
 
     var emptyMessage: String {
         switch self {
-        case .inbox: return "Share something from any app. Events and tasks are filed automatically; everything else lands here."
-        case .filed: return "Items added to Calendar or Reminders show up here."
-        case .archived: return "Swipe an inbox item to archive it."
+        case .inbox: return "Share something from any app, or pull down to add one. Events and tasks go to Calendar and Reminders; everything else lands here."
+        case .favorites: return "Heart an item to keep it here, from any list."
+        case .saved: return "Swipe right on an Inbox item to save it for later."
+        case .archived: return "Archived items, and anything sent to Calendar or Reminders."
         }
     }
 }
 
 struct ItemsListView: View {
     let section: ItemsSection
-    /// Bumped when the user taps this tab while already on it; resets the filter to All.
-    var filterResetToken = 0
-    /// False while another tab is showing; leaving a tab puts its map back to the list.
-    var isActiveTab = true
     @Environment(\.managedObjectContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Environment(ItemPipeline.self) private var pipeline
     /// Newest first.
     @FetchRequest(sortDescriptors: [SortDescriptor(\Item.timestamp, order: .reverse)]) private var items: FetchedResults<Item>
-
-    @State private var showingAbout = false
-    @State private var showingSettings = false
 
     @State private var filter: CategoryKind?
     @State private var editMode: EditMode = .inactive
@@ -85,90 +92,71 @@ struct ItemsListView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollViewReader { proxy in
-            List(selection: $selection) {
-                // One section per item so each is its own card.
-                // One group of plain rows with faint dividers, not a card per item.
-                Section {
-                    ForEach(visible) { item in
-                        NavigationLink(value: item) {
-                            ItemRowView(item: item, section: section)
-                        }
-                        .tag(item.id)
-                        .id(item.id)
-                        .plainRow()
-                        .swipeActions(edge: .trailing) { ItemTrailingSwipeActions(item: item) }
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            ItemLeadingSwipeActions(item: item, filer: pipeline.filer) {
-                                listPicker = ListPickerRequest(items: [item])
-                            }
+        List(selection: $selection) {
+            // One group of plain rows with faint dividers, not a card per item.
+            Section {
+                ForEach(visible) { item in
+                    NavigationLink(value: item) {
+                        ItemRowView(item: item, section: section)
+                    }
+                    .tag(item.id)
+                    .id(item.id)
+                    .plainRow()
+                    .swipeActions(edge: .trailing) { ItemTrailingSwipeActions(item: item) }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        ItemLeadingSwipeActions(item: item, filer: pipeline.filer) {
+                            listPicker = ListPickerRequest(items: [item])
                         }
                     }
                 }
             }
-            .environment(\.editMode, $editMode)
-            .cardList()
-            // Pull down past the newest item to add one (Inbox only).
-            .pullToAdd(enabled: section == .inbox && !isSelecting)
-            .sheet(item: $listPicker) { request in
-                ListPickerSheet(items: request.items) { endSelecting() }
+        }
+        .environment(\.editMode, $editMode)
+        .cardList()
+        // Pull down past the newest item to add one (Inbox only).
+        .pullToAdd(enabled: section == .inbox && !isSelecting)
+        .sheet(item: $listPicker) { request in
+            ListPickerSheet(items: request.items) { endSelecting() }
+        }
+        // On the map, the header and bottom controls are plain insets on the map rather than the list's
+        // bars: system bars draw an edge layer behind themselves, which showed as a band over the map.
+        .overlay {
+            if showingMap {
+                ItemsMapView(items: visible, selection: $selectedPin, userLocation: $userLocation)
+                    .safeAreaInset(edge: .top, spacing: 0) { headerStack.padding(.bottom, ScreenHeaderSpacing.bottom) }
+                    .safeAreaInset(edge: .bottom, spacing: 0) { bottomControls }
+                    .transition(.opacity)
             }
-            // On the map, the header and bottom controls are plain insets on the map rather than the list's
-            // bars: system bars draw an edge layer behind themselves, which showed as a band over the map.
-            .overlay {
-                if showingMap {
-                    ItemsMapView(items: visible, selection: $selectedPin, userLocation: $userLocation)
-                        .safeAreaInset(edge: .top, spacing: 0) { headerStack.padding(.bottom, ScreenHeaderSpacing.bottom) }
-                        .safeAreaInset(edge: .bottom, spacing: 0) { bottomControls }
-                        .transition(.opacity)
+        }
+        .scrollEdgeEffectHidden(showingMap, for: .all)
+        .screenHeader(hidden: showingMap) { headerStack }
+        .navigationTitle(section.rawValue)
+        .toolbar(.hidden, for: .navigationBar)
+        .overlay {
+            if visible.isEmpty {
+                if let filter, !inSection.isEmpty {
+                    ContentUnavailableView("No \(filter.label) Items", systemImage: filter.systemImage)
+                } else {
+                    ContentUnavailableView(section.emptyTitle, systemImage: section.systemImage,
+                                           description: Text(section.emptyMessage))
                 }
             }
-            .scrollEdgeEffectHidden(showingMap, for: .all)
-            .screenHeader(hidden: showingMap) { headerStack }
-            .sheet(isPresented: $showingAbout) { AboutView() }
-            .sheet(isPresented: $showingSettings) { SettingsView() }
-            .navigationTitle(section.rawValue)
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: pipeline.filer) }
-            .overlay {
-                if visible.isEmpty {
-                    if let filter, !inSection.isEmpty {
-                        ContentUnavailableView("No \(filter.label) Items", systemImage: filter.systemImage)
-                    } else {
-                        ContentUnavailableView(section.emptyTitle, systemImage: section.systemImage,
-                                               description: Text(section.emptyMessage))
-                    }
-                }
+        }
+        // A bar, not an inset, so cards scrolling under it get the system's soft edge effect.
+        .safeAreaBar(edge: .bottom) {
+            if isSelecting {
+                selectionBar
+            } else if !inSection.isEmpty && !showingMap {
+                bottomControls
             }
-            // A bar, not an inset, so cards scrolling under it get the system's soft edge effect.
-            .safeAreaBar(edge: .bottom) {
-                if isSelecting {
-                    selectionBar
-                } else if !inSection.isEmpty && !showingMap {
-                    bottomControls
-                }
-            }
-            .animation(.easeInOut(duration: 0.25), value: showingMap)
-            // The map is only for places: any other filter, or leaving the tab, goes back to the list.
-            .onChange(of: ItemsBottomControls.showsMap(filter: filter, available: availableFilters)) { _, shows in
-                if !shows { showingMap = false }
-            }
-            .onChange(of: isActiveTab) { _, active in
-                if !active { showingMap = false }
-            }
-            .onChange(of: showingMap) { _, shown in
-                if !shown { selectedPin = nil }
-            }
-            // Tapping this tab while on it: back to All, back to the top.
-            .onChange(of: filterResetToken) { _, _ in
-                filter = nil
-                DispatchQueue.main.async {
-                    guard let first = inSection.first?.id else { return }
-                    withAnimation(.snappy) { proxy.scrollTo(first, anchor: .top) }
-                }
-            }
-            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: showingMap)
+        // The map is only for places: any other filter goes back to the list.
+        .onChange(of: ItemsBottomControls.showsMap(filter: filter, available: availableFilters)) { _, shows in
+            if !shows { showingMap = false }
+        }
+        .onChange(of: showingMap) { _, shown in
+            if !shown { selectedPin = nil }
         }
         .onAppear { Task { await pipeline.refresh(modelContext) } }
     }
@@ -184,11 +172,22 @@ struct ItemsListView: View {
                 }
                 .buttonStyle(.plain)
                 .headerGlass()
-            } else if section == .inbox {
-                // A title, not a button, so no glass.
-                Text("Dumpling")
-                    .font(.title2.bold())
-                    .padding(.leading, 4)
+            } else {
+                HStack(spacing: 8) {
+                    // Back to the Lists screen, like Mail's mailboxes.
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.title3.weight(.semibold))
+                            .headerGlassCircle()
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Lists")
+                    // A title, not a button, so no glass.
+                    Text(section.rawValue)
+                        .font(.title2.bold())
+                }
             }
         } trailing: {
             if !inSection.isEmpty && !showingMap {
@@ -198,16 +197,6 @@ struct ItemsListView: View {
                 .fontWeight(isSelecting ? .semibold : .regular)
                 .buttonStyle(.plain)
                 .headerGlass()
-            }
-            if section == .inbox {
-                Menu {
-                    Button("About", systemImage: "info.circle") { showingAbout = true }
-                    Button("Settings", systemImage: "gearshape") { showingSettings = true }
-                } label: {
-                    MenuTwoLineIcon()
-                        .headerGlassCircle()
-                }
-                .accessibilityLabel("Menu")
             }
         }
     }
@@ -255,7 +244,9 @@ struct ItemsListView: View {
             Spacer()
             Button {
                 let archiving = section != .archived
-                for item in selectedItems { item.archivedAt = archiving ? .now : nil }
+                for item in selectedItems {
+                    if archiving { item.archivedAt = .now } else { item.unarchive() }
+                }
                 try? modelContext.save()
                 endSelecting()
             } label: {
@@ -461,7 +452,7 @@ struct ModelUnavailableBanner: View {
 }
 
 /// Two-line menu icon (after Hugeicons "menu-two-line"); SF Symbols only has a three-line one.
-private struct MenuTwoLineIcon: View {
+struct MenuTwoLineIcon: View {
     var body: some View {
         VStack(spacing: 6) {
             Capsule().frame(width: 20, height: 2.5)

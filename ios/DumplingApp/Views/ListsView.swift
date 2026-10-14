@@ -3,81 +3,107 @@ import SwiftUI
 import CoreData
 
 /// The Lists tab: user-made groups of items, like everything for a trip.
+/// The Lists screen, like Mail's mailboxes: the built-in lists as tiles (Inbox, Favorites, Saved, Archive), then
+/// the user's lists. The app opens on the Inbox, one step in; its back arrow comes here.
 struct ListsView: View {
-    /// Bumped when the user taps the Lists tab while on it; scrolls back to the top.
-    var resetToken = 0
-    var isActiveTab = true
+    /// The app's navigation path, for the tiles (links in a list row get a stray disclosure arrow each).
+    @Binding var path: NavigationPath
     @Environment(\.managedObjectContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
     @FetchRequest(sortDescriptors: [SortDescriptor(\ItemList.createdAt)]) private var lists: FetchedResults<ItemList>
+    /// For the tiles' counts.
+    @FetchRequest(sortDescriptors: []) private var allItems: FetchedResults<Item>
 
     /// The list being edited; .some(nil) creates a new one.
     @State private var editing: EditTarget?
+    @State private var showingAbout = false
+    @State private var showingSettings = false
+
+    private let tileColumns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
     var body: some View {
-        NavigationStack {
-            ScrollViewReader { proxy in
-            List {
-                // One group of plain rows with faint dividers, not a card per list.
-                Section {
-                    ForEach(lists) { list in
-                        NavigationLink(value: list) {
-                            ListRow(list: list)
+        List {
+            Section {
+                LazyVGrid(columns: tileColumns, spacing: 10) {
+                    ForEach(ItemsSection.allCases) { section in
+                        Button {
+                            path.append(section)
+                        } label: {
+                            SectionTile(section: section, count: allItems.filter(section.contains).count)
                         }
-                        .id(list.id)
-                        .plainRow()
-                        .contextMenu { listActions(for: list) }
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) { delete(list) } label: {
-                                Label(Sharing.isOwner(of: list) ? "Delete" : "Leave",
-                                      systemImage: Sharing.isOwner(of: list) ? "trash" : "rectangle.portrait.and.arrow.right")
-                            }
-                            Button { editing = EditTarget(list: list) } label: {
-                                Label("Details", systemImage: "info.circle")
-                            }
-                            .tint(.gray)
-                        }
+                        .buttonStyle(.plain)
                     }
                 }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listSectionSeparator(.hidden)
             }
-            .cardList()
-            .screenHeader {
-                ScreenHeader {
-                    EmptyView()
-                } trailing: {
-                    Button {
-                        editing = EditTarget(list: nil)
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.title3.weight(.semibold))
-                            .headerGlassCircle()
+            // One group of plain rows with faint dividers, not a card per list.
+            Section {
+                ForEach(lists) { list in
+                    NavigationLink(value: list) {
+                        ListRow(list: list)
                     }
-                    .accessibilityLabel("New List")
+                    .id(list.id)
+                    .plainRow()
+                    .contextMenu { listActions(for: list) }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) { delete(list) } label: {
+                            Label(Sharing.isOwner(of: list) ? "Delete" : "Leave",
+                                  systemImage: Sharing.isOwner(of: list) ? "trash" : "rectangle.portrait.and.arrow.right")
+                        }
+                        Button { editing = EditTarget(list: list) } label: {
+                            Label("Details", systemImage: "info.circle")
+                        }
+                        .tint(.gray)
+                    }
                 }
-            }
-            .overlay {
                 if lists.isEmpty {
-                    ContentUnavailableView {
-                        Label("No Lists", systemImage: "list.bullet")
-                    } description: {
-                        Text("Group items into lists, like everything for an upcoming trip.")
-                    } actions: {
-                        Button("New List") { editing = EditTarget(list: nil) }
-                            .buttonStyle(.borderedProminent)
-                    }
+                    Button("New List", systemImage: "plus") { editing = EditTarget(list: nil) }
+                        .plainRow()
                 }
-            }
-            .navigationTitle("Lists")
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: ItemList.self) { ListDetailView(list: $0, isActiveTab: isActiveTab) }
-            .navigationDestination(for: Item.self) { ItemDetailView(item: $0, filer: pipeline.filer) }
-            .sheet(item: $editing) { target in EditListSheet(list: target.list) }
-            .onChange(of: resetToken) { _, _ in
-                guard let first = lists.first?.id else { return }
-                withAnimation(.snappy) { proxy.scrollTo(first, anchor: .top) }
-            }
+            } header: {
+                Text("My Lists")
+                    .font(.title3.bold())
+                    .foregroundStyle(Color(.label))
+                    .textCase(nil)
+                    .padding(.leading, -16)
             }
         }
+        .cardList()
+        .screenHeader {
+            ScreenHeader {
+                Text("Dumpling")
+                    .font(.title2.bold())
+                    .padding(.leading, 4)
+            } trailing: {
+                Button {
+                    editing = EditTarget(list: nil)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.title3.weight(.semibold))
+                        .headerGlassCircle()
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("New List")
+                Menu {
+                    Button("About", systemImage: "info.circle") { showingAbout = true }
+                    Button("Settings", systemImage: "gearshape") { showingSettings = true }
+                } label: {
+                    MenuTwoLineIcon()
+                        .headerGlassCircle()
+                }
+                // Menus tint their label; match the + beside it.
+                .tint(Color(.label))
+                .accessibilityLabel("Menu")
+            }
+        }
+        .navigationTitle("Lists")
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: $editing) { target in EditListSheet(list: target.list) }
+        .sheet(isPresented: $showingAbout) { AboutView() }
+        .sheet(isPresented: $showingSettings) { SettingsView() }
     }
 
     @ViewBuilder
@@ -137,8 +163,6 @@ private struct ListRow: View {
 /// One list's items, newest first like the other tabs.
 struct ListDetailView: View {
     @ObservedObject var list: ItemList
-    /// False while another tab is showing; leaving the tab puts the map back to the list.
-    var isActiveTab = true
     @Environment(\.managedObjectContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(ItemPipeline.self) private var pipeline
@@ -158,9 +182,8 @@ struct ListDetailView: View {
     /// changes when items join or leave it, so archiving an item didn't take it off the screen.
     @FetchRequest private var fetchedItems: FetchedResults<Item>
 
-    init(list: ItemList, isActiveTab: Bool = true) {
+    init(list: ItemList) {
         self.list = list
-        self.isActiveTab = isActiveTab
         _fetchedItems = FetchRequest(sortDescriptors: [SortDescriptor(\Item.timestamp, order: .reverse)],
                                      predicate: NSPredicate(format: "list == %@ AND archivedAt == nil", list))
     }
@@ -204,7 +227,7 @@ struct ListDetailView: View {
             Section {
                 ForEach(visible) { item in
                     NavigationLink(value: item) {
-                        ItemRowView(item: item, section: item.isArchived ? .archived : item.isFiled ? .filed : .inbox)
+                        ItemRowView(item: item, section: item.isInArchive ? .archived : item.isSavedForLater ? .saved : .inbox)
                     }
                     .plainRow()
                     // The same swipes as in the sections; not on lists shared view-only.
@@ -242,12 +265,9 @@ struct ListDetailView: View {
             if !items.isEmpty && !showingMap { bottomControls }
         }
         .animation(.easeInOut(duration: 0.25), value: showingMap)
-        // The map is only for places: any other filter, or leaving the tab, goes back to the list.
+        // The map is only for places: any other filter goes back to the list.
         .onChange(of: ItemsBottomControls.showsMap(filter: filter, available: availableFilters)) { _, shows in
             if !shows { showingMap = false }
-        }
-        .onChange(of: isActiveTab) { _, active in
-            if !active { showingMap = false }
         }
         .onChange(of: showingMap) { _, shown in
             if !shown { selectedPin = nil }
@@ -340,6 +360,36 @@ struct ListDetailView: View {
             .animation(.easeOut(duration: 0.15), value: titleScrolledAway)
             .accessibilityLabel("\(list.name), \(subtitle), List Details")
         }
+    }
+}
+
+/// A built-in list's tile, like Reminders' smart lists: icon, count and name.
+private struct SectionTile: View {
+    let section: ItemsSection
+    let count: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                CenteredSymbol(name: section.systemImage, side: 16)
+                    .foregroundStyle(.readable(on: section.tint))
+                    .frame(width: 32, height: 32)
+                    .background(section.tint, in: .circle)
+                Spacer()
+                Text("\(count)")
+                    .font(.title2.bold())
+                    .monospacedDigit()
+            }
+            Text(section.rawValue)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 14))
+        .contentShape(.rect(cornerRadius: 14))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(section.rawValue), \(count)")
     }
 }
 
