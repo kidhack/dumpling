@@ -45,6 +45,8 @@ struct ItemsListView: View {
     let section: ItemsSection
     /// Bumped when the user taps this tab while already on it; resets the filter to All.
     var filterResetToken = 0
+    /// False while another tab is showing; leaving a tab puts its map back to the list.
+    var isActiveTab = true
     @Environment(\.managedObjectContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
     /// Newest first.
@@ -64,6 +66,7 @@ struct ItemsListView: View {
     @State private var listPickerItems: [Item] = []
     @State private var showingListPicker = false
     @State private var showingMap = false
+    @State private var selectedPin: UUID?
 
     private var isSelecting: Bool { editMode.isEditing }
     private var inSection: [Item] { items.filter(section.contains) }
@@ -137,7 +140,13 @@ struct ItemsListView: View {
             .sheet(isPresented: $showingListPicker) {
                 ListPickerSheet(items: listPickerItems) { endSelecting() }
             }
-            .screenHeader {
+            .overlay {
+                if showingMap {
+                    ItemsMapView(items: visible, selection: $selectedPin)
+                        .transition(.opacity)
+                }
+            }
+            .screenHeader(alwaysFaded: showingMap) {
                 VStack(spacing: 8) {
                     header
                     if section == .inbox, let reason = pipeline.modelUnavailable {
@@ -146,7 +155,6 @@ struct ItemsListView: View {
                 }
             }
             .sheet(isPresented: $showingAbout) { AboutView() }
-            .sheet(isPresented: $showingMap) { ItemsMapView(items: visible, filer: pipeline.filer) }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .navigationTitle(section.rawValue)
             .toolbar(.hidden, for: .navigationBar)
@@ -165,8 +173,29 @@ struct ItemsListView: View {
                 if isSelecting {
                     selectionBar
                 } else if !inSection.isEmpty {
-                    CategoryFilterBar(selection: $filter, available: availableFilters) { showingMap = true }
+                    VStack(spacing: 0) {
+                        if showingMap, let pin = ItemsMapView.pins(for: visible).first(where: { $0.id == selectedPin }) {
+                            PlaceCard(item: pin.item, coordinate: pin.coordinate)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, CategoryFilterBar.mapButtonClearance + 8)
+                                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                        }
+                        CategoryFilterBar(selection: $filter, available: availableFilters,
+                                          showingMap: $showingMap)
+                    }
+                    .animation(.easeOut(duration: 0.2), value: selectedPin)
                 }
+            }
+            .animation(.easeInOut(duration: 0.25), value: showingMap)
+            // The map is only for places: any other filter, or leaving the tab, goes back to the list.
+            .onChange(of: filter) { _, new in
+                if new != .location { showingMap = false }
+            }
+            .onChange(of: isActiveTab) { _, active in
+                if !active { showingMap = false }
+            }
+            .onChange(of: showingMap) { _, shown in
+                if !shown { selectedPin = nil }
             }
             // Tapping this tab while on it: back to All, back to the top.
             .onChange(of: filterResetToken) { _, _ in
@@ -190,7 +219,7 @@ struct ItemsListView: View {
                     .font(.title2.bold())
             }
         } trailing: {
-            if !inSection.isEmpty {
+            if !inSection.isEmpty && !showingMap {
                 Button(isSelecting ? "Done" : "Select") {
                     if isSelecting { endSelecting() } else { editMode = .active }
                 }

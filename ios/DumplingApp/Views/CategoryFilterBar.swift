@@ -4,8 +4,8 @@ import SwiftUI
 struct CategoryFilterBar: View {
     @Binding var selection: CategoryKind?
     let available: [CategoryKind]
-    /// Shown as a map button above the Location pill while that filter is on.
-    var showMap: (() -> Void)?
+    /// Map/list toggle, shown as a button above the Location pill while that filter is on.
+    var showingMap: Binding<Bool>?
 
     /// Shared with the Select mode action bar so switching between them doesn't move anything.
     static let chipHeight: CGFloat = 36
@@ -14,6 +14,8 @@ struct CategoryFilterBar: View {
     static let bottomPadding: CGFloat = 24
 
     static let mapButtonSize: CGFloat = 44
+    /// How far the map button reaches above the bar, for anything stacked over it.
+    static let mapButtonClearance: CGFloat = mapButtonSize + 8
 
     @State private var chipFrames: [String: CGRect] = [:]
     @State private var scrollingChipFrames: [String: CGRect] = [:]
@@ -61,8 +63,8 @@ struct CategoryFilterBar: View {
         }
         .overlay(alignment: .topLeading) {
             let frames = stretchSelected ? chipFrames : scrollingChipFrames
-            if selection == .location, let showMap, let pill = frames[CategoryKind.location.rawValue] {
-                mapButton(action: showMap)
+            if selection == .location, let showingMap, let pill = frames[CategoryKind.location.rawValue] {
+                mapButton(showingMap)
                     .position(x: locationIconX[stretchSelected] ?? pill.midX,
                               y: pill.minY - Self.topPadding - 8 - Self.mapButtonSize / 2)
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
@@ -70,18 +72,21 @@ struct CategoryFilterBar: View {
         }
     }
 
-    private func mapButton(action: @escaping () -> Void) -> some View {
+    private func mapButton(_ showingMap: Binding<Bool>) -> some View {
         let tint = CategoryKind.location.tint
-        return Button(action: action) {
-            Image(systemName: "map.fill")
+        return Button {
+            showingMap.wrappedValue.toggle()
+        } label: {
+            Image(systemName: showingMap.wrappedValue ? "list.bullet" : "map.fill")
                 .font(.body.weight(.semibold))
+                .contentTransition(.symbolEffect(.replace))
                 .foregroundStyle(.white)
                 .frame(width: Self.mapButtonSize, height: Self.mapButtonSize)
                 .background(tint, in: .circle)
                 .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Show on Map")
+        .accessibilityLabel(showingMap.wrappedValue ? "Show as List" : "Show on Map")
     }
 
     private func chip(_ kind: CategoryKind?, label: String, systemImage: String, tint: Color, stretch: Bool) -> some View {

@@ -35,14 +35,15 @@ extension View {
     }
 
     /// Pins `header` above a scrolling list. Cards fade out beneath it once the list is scrolled;
-    /// at rest nothing dims the first card.
-    func screenHeader<Header: View>(@ViewBuilder _ header: () -> Header) -> some View {
-        modifier(ScreenHeaderModifier(header: header()))
+    /// at rest nothing dims the first card. `alwaysFaded` keeps the fade on, for content like a map.
+    func screenHeader<Header: View>(alwaysFaded: Bool = false, @ViewBuilder _ header: () -> Header) -> some View {
+        modifier(ScreenHeaderModifier(header: header(), alwaysFaded: alwaysFaded))
     }
 }
 
 private struct ScreenHeaderModifier<Header: View>: ViewModifier {
     let header: Header
+    let alwaysFaded: Bool
     @State private var isScrolled = false
 
     func body(content: Content) -> some View {
@@ -63,8 +64,8 @@ private struct ScreenHeaderModifier<Header: View>: ViewModifier {
                                        startPoint: .top, endPoint: .bottom)
                             .padding(.bottom, -44)
                             .ignoresSafeArea(edges: .top)
-                            .opacity(isScrolled ? 1 : 0)
-                            .animation(.easeOut(duration: 0.2), value: isScrolled)
+                            .opacity(isScrolled || alwaysFaded ? 1 : 0)
+                            .animation(.easeOut(duration: 0.2), value: isScrolled || alwaysFaded)
                     }
             }
     }

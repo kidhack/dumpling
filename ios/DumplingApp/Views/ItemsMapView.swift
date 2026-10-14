@@ -2,28 +2,25 @@ import CoreData
 import MapKit
 import SwiftUI
 
-/// Every place in the current view on one map. Tapping a pin shows the place with links to its details
-/// and to Apple Maps. Places saved with only an address are looked up when the map opens.
+/// The places in a tab, shown in place of its list. Places saved with only an address are looked up
+/// when the map appears.
 struct ItemsMapView: View {
     let items: [Item]
-    let filer: Filer
+    @Binding var selection: UUID?
 
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.managedObjectContext) private var context
     @State private var position: MapCameraPosition = .automatic
-    @State private var selectedID: UUID?
     /// Coordinates looked up for this session, for items that can't be saved to (lists shared view-only).
     @State private var lookedUp: [UUID: CLLocationCoordinate2D] = [:]
-    @State private var isLookingUp = false
-    @State private var detailItem: Item?
+    @State private var isLookingUp = true
 
-    private struct Pin: Identifiable {
+    struct Pin: Identifiable {
         let item: Item
         let coordinate: CLLocationCoordinate2D
         var id: UUID { item.id }
     }
 
-    private var pins: [Pin] {
+    static func pins(for items: [Item], lookedUp: [UUID: CLLocationCoordinate2D] = [:]) -> [Pin] {
         items.compactMap { item in
             if let latitude = item.latitude, let longitude = item.longitude {
                 return Pin(item: item, coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
@@ -32,66 +29,39 @@ struct ItemsMapView: View {
         }
     }
 
-    private var selected: Pin? { pins.first { $0.id == selectedID } }
+    private var pins: [Pin] { Self.pins(for: items, lookedUp: lookedUp) }
 
     var body: some View {
-        NavigationStack {
-            Map(position: $position, selection: $selectedID) {
-                ForEach(pins) { pin in
-                    Marker(pin.item.displayTitle, systemImage: CategoryKind.location.systemImage,
-                           coordinate: pin.coordinate)
-                        .tint(CategoryKind.location.tint)
-                        .tag(pin.id)
-                }
-                UserAnnotation()
+        Map(position: $position, selection: $selection) {
+            ForEach(pins) { pin in
+                Marker(pin.item.displayTitle, systemImage: CategoryKind.location.systemImage,
+                       coordinate: pin.coordinate)
+                    .tint(CategoryKind.location.tint)
+                    .tag(pin.id)
             }
-            .mapControls {
-                MapUserLocationButton()
-                MapCompass()
+        }
+        .mapControls { MapCompass() }
+        // Runs under the header and filter row, which fade it out at the edges.
+        .ignoresSafeArea()
+        .overlay {
+            if pins.isEmpty && !isLookingUp {
+                ContentUnavailableView("No Places on the Map", systemImage: "map",
+                                       description: Text("These items don't have an address yet."))
+                    .background(Color(.systemGroupedBackground))
             }
-            .overlay {
-                if pins.isEmpty && !isLookingUp {
-                    ContentUnavailableView("No Places on the Map", systemImage: "map",
-                                           description: Text("These items don't have an address yet."))
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                if let selected {
-                    PlaceCard(item: selected.item, coordinate: selected.coordinate) {
-                        detailItem = selected.item
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .animation(.snappy(duration: 0.25), value: selectedID)
-            .navigationTitle(pins.count == 1 ? "1 Place" : "\(pins.count) Places")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if isLookingUp { ProgressView() }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done", systemImage: "xmark") { dismiss() }
-                }
-            }
-            .navigationDestination(item: $detailItem) { ItemDetailView(item: $0, filer: filer) }
         }
         .task { await lookUpMissing() }
     }
 
     /// Finds coordinates for items with an address but no map position, saving them where the user can.
     private func lookUpMissing() async {
+        defer { isLookingUp = false }
         let missing = items.filter { $0.latitude == nil && $0.location != nil }
         guard !missing.isEmpty else { return }
-        isLookingUp = true
-        defer { isLookingUp = false }
         for item in missing {
             guard let address = item.location, let coordinate = await Places.geocode(address) else { continue }
             lookedUp[item.id] = coordinate
-            let editable = item.list.map(Sharing.canEdit) ?? true
-            if editable {
+            if item.list.map(Sharing.canEdit) ?? true {
                 item.latitude = coordinate.latitude
                 item.longitude = coordinate.longitude
             }
@@ -102,11 +72,10 @@ struct ItemsMapView: View {
     }
 }
 
-/// The selected pin: name, address, and what you can do with it.
-private struct PlaceCard: View {
+/// The selected pin, above the filter row: name, address, and what you can do with it.
+struct PlaceCard: View {
     let item: Item
     let coordinate: CLLocationCoordinate2D
-    let showDetails: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -122,7 +91,7 @@ private struct PlaceCard: View {
                 }
             }
             HStack(spacing: 10) {
-                Button(action: showDetails) {
+                NavigationLink(value: item) {
                     Label("Details", systemImage: "info.circle")
                         .frame(maxWidth: .infinity)
                 }
@@ -138,6 +107,7 @@ private struct PlaceCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial, in: .rect(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.12), radius: 10, y: 2)
     }
 
     private func openInMaps() {

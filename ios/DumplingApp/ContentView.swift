@@ -45,14 +45,16 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: tabSelection) {
             Tab(ItemsSection.inbox.rawValue, systemImage: ItemsSection.inbox.systemImage, value: AppTab.section(.inbox)) {
-                ItemsListView(section: .inbox, filterResetToken: filterResets[.inbox, default: 0])
+                ItemsListView(section: .inbox, filterResetToken: filterResets[.inbox, default: 0],
+                              isActiveTab: selection == .section(.inbox))
             }
             Tab("Lists", systemImage: "list.bullet", value: AppTab.lists) {
                 ListsView(resetToken: listsReset)
             }
             ForEach([ItemsSection.filed, .archived]) { section in
                 Tab(section.rawValue, systemImage: section.systemImage, value: AppTab.section(section)) {
-                    ItemsListView(section: section, filterResetToken: filterResets[section, default: 0])
+                    ItemsListView(section: section, filterResetToken: filterResets[section, default: 0],
+                              isActiveTab: selection == .section(section))
                 }
             }
         }
