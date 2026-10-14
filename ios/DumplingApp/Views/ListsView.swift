@@ -157,6 +157,8 @@ struct ListDetailView: View {
     @State private var selectedPin: UUID?
     @State private var showsMapHint = false
     @State private var userLocation: CLLocation?
+    /// The large title has scrolled away, so the small header shows the count instead.
+    @State private var titleCollapsed = false
 
     private var canEdit: Bool { Sharing.canEdit(list) }
 
@@ -235,7 +237,14 @@ struct ListDetailView: View {
         // Like a Reminders list: a large title (small once scrolled, or over the map) with its count. Tapping the
         // title opens List Details: custom title items, since a title menu adds a chevron.
         .navigationTitle(list.name)
-        .navigationSubtitle(subtitle)
+        // The header's count, only once the large title (which has its own, readable) has scrolled away: the
+        // system subtitle also shows, tiny, under a large title.
+        .navigationSubtitle(titleCollapsed || showingMap ? subtitle : "")
+        .onScrollGeometryChange(for: Bool.self) { geo in
+            geo.contentOffset.y + geo.contentInsets.top > 40
+        } action: { _, collapsed in
+            titleCollapsed = collapsed
+        }
         .navigationBarTitleDisplayMode(showingMap ? .inline : .large)
         .toolbar {
             // Only the large title is custom: a custom small title kept the bar small even at the top.
@@ -260,23 +269,29 @@ struct ListDetailView: View {
         return Sharing.isShared(list) ? "Shared · \(count)" : count
     }
 
-    /// The large title, tappable for List Details. The count under it is the system subtitle, which also shows
-    /// with the small title once scrolled.
+    /// The large title with the item count under it, tappable for List Details. The count is part of it rather
+    /// than the system subtitle, which is tiny under a large title; a custom subtitle or small title keeps the bar
+    /// in its scrolled state.
     private var titleButton: some View {
         Button {
             showingEdit = true
         } label: {
-            Text(list.name)
-                .font(.largeTitle.bold())
-                .foregroundStyle(Color(.label))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(list.name)
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(Color(.label))
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
                 // A custom large title sits higher than the system's (Inbox's, say); match them.
                 .padding(.top, 24)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(list.name)
+        .accessibilityLabel("\(list.name), \(subtitle)")
         .accessibilityHint("Opens List Details")
     }
 
