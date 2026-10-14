@@ -107,8 +107,8 @@ If the extension stops showing in the share sheet, check these first (all in `io
 ## Data (Core Data + CloudKit)
 
 - Storage is Core Data with `NSPersistentCloudKitContainer` (`ios/DumplingApp/Data/`): a private store (`default.store`, the file SwiftData originally created) and a shared store (`shared.store`) for lists others share. Both live in the App Group container and sync to `iCloud.com.kidhack.dumpling`.
-- The model is defined in code (`DumplingModel.swift`) and must keep matching the store's entity version hashes. CloudKit requires every attribute to be optional or have a default.
-- **Changing the model:** a code-defined model has no saved previous version, so Core Data can't infer a migration on its own. Keep the old model alongside the new one (or move to an `.xcdatamodeld` with versions) and test the upgrade on a copy of a device backup (`~/Dev/dumpling-backups/`) before installing.
+- The model is `Data/Dumpling.xcdatamodeld`. Every version stays in it so Core Data can upgrade old stores automatically (version 1 matches the schema SwiftData created). `DumplingModel.swift` loads it and sets UUID defaults in code, on a copy, because `.xcdatamodel` can't hold UUID defaults and the compiled model loads read-only on device. CloudKit requires every attribute to be optional or have a default.
+- **Changing the model:** add a new version (copy the latest `.xcdatamodel`, change it, update `.xccurrentversion`); never edit an existing version. Changes must be additive for CloudKit. Test the upgrade on a copy of a device backup with the device-built `Dumpling.momd` (the `.omo` path matters) before installing.
 - Before installing a build that changes the model, copy the device store to `~/Dev/dumpling-backups/<date>-<reason>/` with `devicectl device copy from --domain-type appGroupDataContainer --domain-identifier group.com.kidhack.dumpling`.
 
 ## Key rules

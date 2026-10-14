@@ -68,19 +68,17 @@ struct ItemDetailView: View {
                 .accessibilityLabel("Back")
             } trailing: {
                 Button {
-                    item.isHearted.toggle()
-                    try? modelContext.save()
+                    Task { await Hearts.toggle(item, in: modelContext) }
                 } label: {
-                    Image(systemName: item.isHearted ? "heart.fill" : "heart")
+                    HeartGlyph(mine: item.heartedByMe, others: item.otherHeartCount,
+                               background: Color(.systemGroupedBackground))
                         .font(.title3)
-                        .foregroundStyle(item.isHearted ? .red : .primary)
-                        .contentTransition(.symbolEffect(.replace))
                         .frame(width: 44, height: 44)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .sensoryFeedback(.impact(weight: .light), trigger: item.isHearted)
-                .accessibilityLabel(item.isHearted ? "Remove Heart" : "Heart")
+                .sensoryFeedback(.impact(weight: .light), trigger: item.heartedByMe)
+                .accessibilityLabel(item.heartedByMe ? "Remove Heart" : "Heart")
             }
         }
         .navigationTitle(item.displayTitle)

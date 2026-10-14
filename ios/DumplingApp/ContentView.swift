@@ -57,7 +57,10 @@ struct ContentView: View {
             }
         }
         .environment(pipeline)
-        .task { await pipeline.refresh(modelContext) }
+        .task {
+            await Hearts.prepare(modelContext)
+            await pipeline.refresh(modelContext)
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await pipeline.refresh(modelContext) } }
         }

@@ -26,6 +26,7 @@ final class Item: NSManagedObject {
     @NSManaged var isAllDay: Bool
     @NSManaged var archivedAt: Date?
     @NSManaged var list: ItemList?
+    @NSManaged private var hearts: NSSet?
     /// The user's own heart.
     @NSManaged var isHearted: Bool
 
@@ -101,7 +102,14 @@ final class Item: NSManagedObject {
 
     var categoryLabel: String? { category?.capitalized }
 
-    var heartCount: Int { (isHearted ? 1 : 0) + otherHearts }
+    var heartRecords: [Heart] { (hearts?.allObjects as? [Heart]) ?? [] }
+
+    func heart(by userID: String) -> Heart? { heartRecords.first { $0.userID == userID } }
+
+    /// Distinct people who hearted the item. `isHearted` is the pre-per-person flag, kept until converted.
+    var heartedByMe: Bool { Hearts.myID.map { heart(by: $0) != nil } ?? false }
+    var otherHeartCount: Int { Set(heartRecords.map(\.userID)).subtracting([Hearts.myID ?? ""]).count }
+    var heartCount: Int { (heartedByMe ? 1 : 0) + otherHeartCount }
 
     /// In a list someone else shared with the user. These only show inside their list.
     var isFromSharedList: Bool { objectID.persistentStore == Persistence.shared.sharedStore }

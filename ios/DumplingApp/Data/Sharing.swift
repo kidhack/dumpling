@@ -102,7 +102,7 @@ enum Sharing {
         guard let destinationStore else { return }
         let copy = Item(context: context)
         context.assign(copy, to: destinationStore)
-        copyFields(from: item, to: copy)
+        copyFields(from: item, to: copy, store: destinationStore)
         copy.list = list
         context.delete(item)
     }
@@ -141,7 +141,7 @@ enum Sharing {
         for item in list.itemsArray {
             let itemCopy = Item(context: context)
             context.assign(itemCopy, to: privateStore)
-            copyFields(from: item, to: itemCopy)
+            copyFields(from: item, to: itemCopy, store: privateStore)
             itemCopy.list = copy
         }
         try? context.save()
@@ -162,7 +162,8 @@ enum Sharing {
         }
     }
 
-    private static func copyFields(from source: Item, to copy: Item) {
+    /// `store` is passed in because a new object only reports its store after it has been saved.
+    private static func copyFields(from source: Item, to copy: Item, store: NSPersistentStore) {
         copy.id = source.id
         copy.timestamp = source.timestamp
         copy.contentURL = source.contentURL
@@ -185,5 +186,14 @@ enum Sharing {
         copy.archivedAt = source.archivedAt
         copy.isHearted = source.isHearted
         copy.otherHearts = source.otherHearts
+        // Hearts belong to the item, so they move with it into the copy's store.
+        guard let context = copy.managedObjectContext else { return }
+        for heart in source.heartRecords {
+            let heartCopy = Heart(context: context, userID: heart.userID)
+            context.assign(heartCopy, to: store)
+            heartCopy.id = heart.id
+            heartCopy.createdAt = heart.createdAt
+            heartCopy.item = copy
+        }
     }
 }
