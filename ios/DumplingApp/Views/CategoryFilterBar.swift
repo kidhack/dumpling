@@ -4,7 +4,6 @@ import SwiftUI
 struct CategoryFilterBar: View {
     @Binding var selection: CategoryKind?
     let available: [CategoryKind]
-    var overMap = false
 
     /// Shared with the Select mode action bar so switching between them doesn't move anything.
     static let chipHeight: CGFloat = 36
@@ -38,9 +37,7 @@ struct CategoryFilterBar: View {
         }
         .padding(.top, Self.topPadding)
         .padding(.bottom, Self.bottomPadding)
-        .mapFrost(overMap)
         .animation(.snappy(duration: 0.2), value: selection)
-        .animation(.easeInOut(duration: 0.25), value: overMap)
     }
 
     private func chips(stretchSelected: Bool) -> some View {

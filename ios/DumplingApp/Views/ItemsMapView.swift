@@ -52,7 +52,7 @@ struct ItemsMapView: View {
             MapUserLocationButton()
             MapCompass()
         }
-        // Runs under the header and filter row, which fade it out at the edges.
+        // Runs edge to edge, under the header and filter row.
         .ignoresSafeArea()
         .overlay(alignment: .top) {
             if isLookingUp {
