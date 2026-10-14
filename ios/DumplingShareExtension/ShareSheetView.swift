@@ -8,6 +8,21 @@ struct ShareSheetView: View {
     @State private var selectedTag: CategoryKind? = nil
     @FocusState private var noteFocused: Bool
 
+    /// The note with return as Done. (Extensions can't reach UIApplication, so this drops focus instead.)
+    private var noteDoneOnReturn: Binding<String> {
+        Binding(
+            get: { userNote },
+            set: { newValue in
+                guard newValue.contains("\n") else {
+                    userNote = newValue
+                    return
+                }
+                userNote = newValue.replacingOccurrences(of: "\n", with: "")
+                noteFocused = false
+            }
+        )
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -22,8 +37,10 @@ struct ShareSheetView: View {
                 }
 
                 Section("Note") {
-                    TextField("Optional", text: $userNote, axis: .vertical)
+                    // Return is Done: it closes the keyboard rather than adding a line break.
+                    TextField("Optional", text: noteDoneOnReturn, axis: .vertical)
                         .lineLimit(2...6)
+                        .submitLabel(.done)
                         .focused($noteFocused)
                 }
 
