@@ -16,6 +16,8 @@ struct CategoryFilterBar: View {
     static let bottomPadding: CGFloat = 24
 
     @State private var chipFrames: [String: CGRect] = [:]
+    /// A moment after Location is selected, its pin turns into a map: the hint that tapping again opens one.
+    @State private var showsMapHint = false
 
     var body: some View {
         // The selected pill stretches so the row spans the screen; with too many categories to fit, it scrolls.
@@ -41,6 +43,12 @@ struct CategoryFilterBar: View {
         }
         .padding(.top, Self.topPadding)
         .padding(.bottom, Self.bottomPadding)
+        .task(id: selection == .location && showingMap != nil) {
+            showsMapHint = false
+            guard selection == .location, showingMap != nil else { return }
+            try? await Task.sleep(for: .milliseconds(600))
+            showsMapHint = true
+        }
         .animation(.snappy(duration: 0.2), value: selection)
     }
 
@@ -69,19 +77,17 @@ struct CategoryFilterBar: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: systemImage)
+                // For Location with places to map: the pin, then a map (tap for the map), or a list on the map.
+                Image(systemName: mapToggle.map { $0.wrappedValue ? "list.bullet" : (showsMapHint ? "map" : systemImage) }
+                                  ?? systemImage)
                     .font(.body.weight(.semibold))
+                    .contentTransition(.symbolEffect(.replace))
+                    .animation(.snappy, value: showsMapHint)
+                    .animation(.snappy, value: mapToggle?.wrappedValue)
                 if isSelected {
                     Text(label)
                         .font(.subheadline.weight(.semibold))
                         .fixedSize()
-                }
-                // The hint that tapping again switches views: the map icon on the list, the list icon on the map.
-                if let mapToggle {
-                    Image(systemName: mapToggle.wrappedValue ? "list.bullet" : "map")
-                        .font(.footnote.weight(.semibold))
-                        .contentTransition(.symbolEffect(.replace))
-                        .opacity(0.85)
                 }
             }
             .foregroundStyle(isSelected ? (kind == nil ? Color(.systemBackground) : .white) : tint)
