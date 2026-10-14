@@ -142,22 +142,19 @@ struct ItemsListView: View {
             .sheet(isPresented: $showingListPicker) {
                 ListPickerSheet(items: listPickerItems) { endSelecting() }
             }
+            // On the map, the header and bottom controls are plain insets on the map rather than the list's
+            // bars: system bars draw an edge layer behind themselves, which showed as a band over the map.
             .overlay {
                 if showingMap {
                     ItemsMapView(items: visible, selection: $selectedPin, userLocation: $userLocation)
+                        .safeAreaInset(edge: .top, spacing: 0) { headerStack.padding(.bottom, 4) }
+                        .safeAreaInset(edge: .bottom, spacing: 0) { bottomControls }
                         .transition(.opacity)
                 }
             }
-            // The bars' edge blur (from the list, and the map's own scroll views) would sit over the map;
-            // on the map, the controls sit right on it.
             .scrollEdgeEffectHidden(showingMap, for: .all)
             .screenHeader {
-                VStack(spacing: 8) {
-                    header
-                    if section == .inbox, let reason = pipeline.modelUnavailable {
-                        ModelUnavailableBanner(reason: reason)
-                    }
-                }
+                if !showingMap { headerStack }
             }
             .sheet(isPresented: $showingAbout) { AboutView() }
             .sheet(isPresented: $showingSettings) { SettingsView() }
@@ -178,24 +175,8 @@ struct ItemsListView: View {
             .safeAreaBar(edge: .bottom) {
                 if isSelecting {
                     selectionBar
-                } else if !inSection.isEmpty {
-                    VStack(spacing: 12) {
-                        if showingMap, let pin = ItemsMapView.pins(for: visible).first(where: { $0.id == selectedPin }) {
-                            PlaceCard(item: pin.item, coordinate: pin.coordinate, userLocation: userLocation)
-                                .padding(.horizontal, 16)
-                                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
-                                // The filter row's fade reaches up behind these; keep them in front of it.
-                                .zIndex(1)
-                        }
-                        if filter == .location {
-                            MapListToggle(showingMap: $showingMap)
-                                .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                                .zIndex(1)
-                        }
-                        CategoryFilterBar(selection: $filter, available: availableFilters)
-                    }
-                    .animation(.easeOut(duration: 0.2), value: selectedPin)
-                    .animation(.snappy(duration: 0.2), value: filter)
+                } else if !inSection.isEmpty && !showingMap {
+                    bottomControls
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: showingMap)
@@ -257,6 +238,33 @@ struct ItemsListView: View {
                 .accessibilityLabel("Menu")
             }
         }
+    }
+
+    private var headerStack: some View {
+        VStack(spacing: 8) {
+            header
+            if section == .inbox, let reason = pipeline.modelUnavailable {
+                ModelUnavailableBanner(reason: reason)
+            }
+        }
+    }
+
+    /// The selected place's card, the Map / List pill and the filter row.
+    private var bottomControls: some View {
+        VStack(spacing: 12) {
+            if showingMap, let pin = ItemsMapView.pins(for: visible).first(where: { $0.id == selectedPin }) {
+                PlaceCard(item: pin.item, coordinate: pin.coordinate, userLocation: userLocation)
+                    .padding(.horizontal, 16)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+            }
+            if filter == .location {
+                MapListToggle(showingMap: $showingMap)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
+            CategoryFilterBar(selection: $filter, available: availableFilters)
+        }
+        .animation(.easeOut(duration: 0.2), value: selectedPin)
+        .animation(.snappy(duration: 0.2), value: filter)
     }
 
     // MARK: - Selection
