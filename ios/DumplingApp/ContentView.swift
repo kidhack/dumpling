@@ -44,6 +44,23 @@ struct ContentView: View {
             NavigationStack { ItemDetailView(item: item, filer: pipeline.filer) }
         }
         .task {
+            #if DEBUG
+            // DUMPLING_START_LIST=<name> opens that list, for checking its screen without tapping.
+            if let name = ProcessInfo.processInfo.environment["DUMPLING_START_LIST"] {
+                let request = ItemList.fetchRequest()
+                request.predicate = NSPredicate(format: "name == %@", name)
+                if let list = try? modelContext.fetch(request).first {
+                    // DUMPLING_PUSH=1 slides it in from Lists, as a tap does.
+                    if ProcessInfo.processInfo.environment["DUMPLING_PUSH"] == "1" {
+                        path = NavigationPath()
+                        try? await Task.sleep(for: .seconds(1))
+                        path.append(list)
+                    } else {
+                        path = NavigationPath([list])
+                    }
+                }
+            }
+            #endif
             NearbyAlerts.shared.appBecame(active: scenePhase == .active)
             await Hearts.prepare(modelContext)
             await pipeline.refresh(modelContext)

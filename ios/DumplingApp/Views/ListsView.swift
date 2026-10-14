@@ -157,8 +157,10 @@ struct ListDetailView: View {
     @State private var selectedPin: UUID?
     @State private var showsMapHint = false
     @State private var userLocation: CLLocation?
-    /// The large title has scrolled away, so the small header shows the count instead.
+    /// The large title has scrolled away, so the small header shows the count too.
     @State private var titleCollapsed = false
+    /// Scroll readings while the screen slides in look scrolled; only follow the scroll once it has settled.
+    @State private var settled = false
 
     private var canEdit: Bool { Sharing.canEdit(list) }
 
@@ -199,6 +201,22 @@ struct ListDetailView: View {
                         }
                     }
                 }
+            } header: {
+                // Under the large title: the count, readable, and the way to List Details.
+                Button {
+                    showingEdit = true
+                } label: {
+                    Text(subtitle)
+                        .font(.subheadline)
+                        // Explicit: section headers tone down `.secondary`.
+                        .foregroundStyle(Color(.secondaryLabel))
+                        .textCase(nil)
+                }
+                .buttonStyle(.plain)
+                // In line with, and close under, the large title above.
+                .padding(.leading, -16)
+                .padding(.top, -10)
+                .accessibilityHint("Opens List Details")
             }
         }
         .cardList()
@@ -237,20 +255,21 @@ struct ListDetailView: View {
         // Like a Reminders list: a large title (small once scrolled, or over the map) with its count. Tapping the
         // title opens List Details: custom title items, since a title menu adds a chevron.
         .navigationTitle(list.name)
-        // The header's count, only once the large title (which has its own, readable) has scrolled away: the
-        // system subtitle also shows, tiny, under a large title.
+        // The count joins the small header once the large title scrolls away. Not from the start: a subtitle set
+        // while the screen slides in makes iOS open it collapsed (the large title has the count row instead).
         .navigationSubtitle(titleCollapsed || showingMap ? subtitle : "")
         .onScrollGeometryChange(for: Bool.self) { geo in
             geo.contentOffset.y + geo.contentInsets.top > 40
         } action: { _, collapsed in
-            titleCollapsed = collapsed
+            if settled { titleCollapsed = collapsed }
+        }
+        .task {
+            try? await Task.sleep(for: .milliseconds(600))
+            settled = true
         }
         .navigationBarTitleDisplayMode(showingMap ? .inline : .large)
         .toolbar {
             // Only the large title is custom: a custom small title kept the bar small even at the top.
-            ToolbarItem(placement: .largeTitle) {
-                titleButton
-            }
             ToolbarItem(placement: .topBarTrailing) { listMenu }
         }
         .sheet(isPresented: $showingEdit) { EditListSheet(list: list, onLeave: { dismiss() }) }
@@ -267,32 +286,6 @@ struct ListDetailView: View {
     private var subtitle: String {
         let count = items.count == 1 ? "1 item" : "\(items.count) items"
         return Sharing.isShared(list) ? "Shared · \(count)" : count
-    }
-
-    /// The large title with the item count under it, tappable for List Details. The count is part of it rather
-    /// than the system subtitle, which is tiny under a large title; a custom subtitle or small title keeps the bar
-    /// in its scrolled state.
-    private var titleButton: some View {
-        Button {
-            showingEdit = true
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(list.name)
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(Color(.label))
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            .lineLimit(1)
-            .frame(maxWidth: .infinity, alignment: .leading)
-                // A custom large title sits higher than the system's (Inbox's, say); match them.
-                .padding(.top, 24)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(list.name), \(subtitle)")
-        .accessibilityHint("Opens List Details")
     }
 
     private var listMenu: some View {
