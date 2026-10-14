@@ -175,17 +175,20 @@ struct ItemsListView: View {
                 if isSelecting {
                     selectionBar
                 } else if !inSection.isEmpty {
-                    VStack(spacing: 0) {
+                    VStack(spacing: 12) {
                         if showingMap, let pin = ItemsMapView.pins(for: visible).first(where: { $0.id == selectedPin }) {
                             PlaceCard(item: pin.item, coordinate: pin.coordinate, userLocation: userLocation)
                                 .padding(.horizontal, 16)
-                                .padding(.bottom, CategoryFilterBar.mapButtonClearance + 8)
                                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
                         }
-                        CategoryFilterBar(selection: $filter, available: availableFilters,
-                                          showingMap: $showingMap)
+                        if filter == .location {
+                            MapListToggle(showingMap: $showingMap)
+                                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        }
+                        CategoryFilterBar(selection: $filter, available: availableFilters)
                     }
                     .animation(.easeOut(duration: 0.2), value: selectedPin)
+                    .animation(.snappy(duration: 0.2), value: filter)
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: showingMap)
@@ -391,6 +394,32 @@ struct ItemRowView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// Floating Map / List switch, centered above the filter row while Location is selected.
+struct MapListToggle: View {
+    @Binding var showingMap: Bool
+
+    var body: some View {
+        Button {
+            showingMap.toggle()
+        } label: {
+            HStack(spacing: 6) {
+                Text(showingMap ? "List" : "Map")
+                Image(systemName: showingMap ? "list.bullet" : "map.fill")
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Color(.systemBackground))
+            .padding(.horizontal, 18)
+            .frame(height: 40)
+            .background(Color(.label), in: .capsule)
+            .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: showingMap)
+        .accessibilityLabel(showingMap ? "Show as List" : "Show on Map")
     }
 }
 

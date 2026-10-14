@@ -2,8 +2,8 @@ import CoreData
 import MapKit
 import SwiftUI
 
-/// The places in a tab, shown in place of its list. Places saved with only an address are looked up
-/// when the map appears.
+/// The places in a tab, shown in place of its list. Places without a map position are looked up when the
+/// map appears; any that can't be found are named at the top, linking to their details to add an address.
 struct ItemsMapView: View {
     let items: [Item]
     @Binding var selection: UUID?
@@ -15,6 +15,9 @@ struct ItemsMapView: View {
     /// Coordinates looked up for this session, for items that can't be saved to (lists shared view-only).
     @State private var lookedUp: [UUID: CLLocationCoordinate2D] = [:]
     @State private var isLookingUp = true
+    @State private var notFound: [Item] = []
+    /// Places pinned to a city center before lookups searched by name get one more try.
+    private static let recheckedKey = "recheckedCityPins.v1"
 
     struct Pin: Identifiable {
         let item: Item
@@ -24,10 +27,11 @@ struct ItemsMapView: View {
 
     static func pins(for items: [Item], lookedUp: [UUID: CLLocationCoordinate2D] = [:]) -> [Pin] {
         items.compactMap { item in
+            if let coordinate = lookedUp[item.id] { return Pin(item: item, coordinate: coordinate) }
             if let latitude = item.latitude, let longitude = item.longitude {
                 return Pin(item: item, coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
             }
-            return lookedUp[item.id].map { Pin(item: item, coordinate: $0) }
+            return nil
         }
     }
 
@@ -50,11 +54,20 @@ struct ItemsMapView: View {
         }
         // Runs under the header and filter row, which fade it out at the edges.
         .ignoresSafeArea()
-        .overlay {
-            if pins.isEmpty && !isLookingUp {
-                ContentUnavailableView("No Places on the Map", systemImage: "map",
-                                       description: Text("These items don't have an address yet."))
-                    .background(Color(.systemGroupedBackground))
+        .overlay(alignment: .top) {
+            if isLookingUp {
+                status { ProgressView().controlSize(.small); Text("Finding places…") }
+            } else if let first = notFound.first {
+                NavigationLink(value: first) {
+                    status {
+                        Image(systemName: "mappin.slash")
+                        Text(notFound.count == 1 ? "\(first.displayTitle) isn't on the map"
+                                                 : "\(notFound.count) places aren't on the map")
+                            .lineLimit(1)
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                    }
+                }
+                .buttonStyle(.plain)
             }
         }
         .task { await lookUpMissing() }
@@ -72,20 +85,43 @@ struct ItemsMapView: View {
         } catch {}
     }
 
-    /// Finds coordinates for items with an address but no map position, saving them where the user can.
+    private func status<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        HStack(spacing: 6, content: content)
+            .font(.subheadline)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.regularMaterial, in: .capsule)
+            .shadow(color: .black.opacity(0.1), radius: 6, y: 2)
+            .padding(.top, 8)
+    }
+
+    /// Finds positions for places without one, saving them where the user can edit the item.
     private func lookUpMissing() async {
         defer { isLookingUp = false }
-        let missing = items.filter { $0.latitude == nil && $0.location != nil }
+        let recheck = !UserDefaults.standard.bool(forKey: Self.recheckedKey)
+        let missing = items.filter { item in
+            if item.latitude == nil { return true }
+            // Positions from geocoding just a city ("Philadelphia, PA") land on the city center.
+            return recheck && !(item.location.map(Processor.isStreetAddress) ?? true)
+                && !(item.contentURL?.contains("google") ?? false) && !(item.contentURL?.contains("maps") ?? false)
+        }
         guard !missing.isEmpty else { return }
+        let near = Self.pins(for: items).first?.coordinate
+        var unfound: [Item] = []
         for item in missing {
-            guard let address = item.location, let coordinate = await Places.geocode(address) else { continue }
+            guard let place = await Processor.findPlace(for: item, near: near), let coordinate = place.coordinate else {
+                if item.latitude == nil { unfound.append(item) }
+                continue
+            }
             lookedUp[item.id] = coordinate
             if item.list.map(Sharing.canEdit) ?? true {
                 item.latitude = coordinate.latitude
                 item.longitude = coordinate.longitude
             }
         }
+        notFound = unfound
         if context.hasChanges { try? context.save() }
+        if recheck { UserDefaults.standard.set(true, forKey: Self.recheckedKey) }
         // Refit now that more pins are on the map.
         position = .automatic
     }

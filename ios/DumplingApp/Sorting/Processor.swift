@@ -78,6 +78,39 @@ enum Processor {
         }
     }
 
+    /// A map position for a saved place that doesn't have one, or only has a city's. Searches Apple Maps
+    /// for the place's name with whatever address it has, reading its web page for an address first when
+    /// it has none. Falls back to the address alone only when it's a street address.
+    @MainActor
+    static func findPlace(for item: Item, near: CLLocationCoordinate2D?) async -> Place? {
+        let name = placeName(item.displayTitle)
+        var address = item.location.flatMap { $0 == item.displayTitle || $0 == name ? nil : $0 }
+        if address == nil, let url = item.contentURL.flatMap(URL.init(string:)), let page = await PageReader.fetch(url) {
+            if let place = page.place, place.coordinate != nil { return place }
+            address = page.address
+        }
+        if let found = await Places.lookup(Place(name: name, address: address), near: near) { return found }
+        if let address, isStreetAddress(address), let coordinate = await Places.geocode(address) {
+            return Place(name: name, address: address, latitude: coordinate.latitude, longitude: coordinate.longitude)
+        }
+        return nil
+    }
+
+    /// Page titles like "The Franklin Mortgage & Investment Co. | Bar in Philadelphia" name the place first.
+    static func placeName(_ title: String) -> String {
+        for separator in [" | ", " • ", " · ", " – ", " — ", " - "] {
+            if let first = title.components(separatedBy: separator).first, first.count >= 2, first != title {
+                return first.trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return title
+    }
+
+    /// "614 n. 2nd st, Philadelphia" is; "Philadelphia, PA" isn't (it would pin the city center).
+    static func isStreetAddress(_ text: String) -> Bool {
+        text.range(of: #"^\s*\d+[A-Za-z]?\s+\S"#, options: .regularExpression) != nil
+    }
+
     /// Where the user's most recently shared place is, to disambiguate name-only lookups.
     private static func recentCoordinate(in items: [Item], excluding current: Item) -> CLLocationCoordinate2D? {
         items.filter { $0.id != current.id && $0.latitude != nil && $0.longitude != nil }

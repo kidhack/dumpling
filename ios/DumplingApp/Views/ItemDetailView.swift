@@ -182,6 +182,18 @@ struct ItemDetailView: View {
         try? modelContext.save()
     }
 
+    /// The user edited the address: find the place again.
+    private func relocate() async {
+        guard category == .location || category == .event else { return }
+        item.latitude = nil
+        item.longitude = nil
+        if let place = await Processor.findPlace(for: item, near: nil), let coordinate = place.coordinate {
+            item.latitude = coordinate.latitude
+            item.longitude = coordinate.longitude
+        }
+        try? modelContext.save()
+    }
+
     /// Items sorted before places had coordinates get them the first time they're opened.
     private func locateIfNeeded() async {
         guard item.latitude == nil, item.location != nil,
@@ -244,6 +256,7 @@ struct ItemDetailView: View {
         }
         if category == .event || category == .location {
             TextField(category == .location ? "Address" : "Location", text: optional(\.location))
+                .onSubmit { Task { await relocate() } }
         }
     }
 
