@@ -47,12 +47,26 @@ struct ListIcon: View {
     }
 
     var body: some View {
-        Image(systemName: symbol)
-            .font(.system(size: size * 0.48, weight: .semibold))
+        CenteredSymbol(name: symbol, side: size * 0.5)
             // White, or black on bright colors like yellow and mint where white wouldn't read.
             .foregroundStyle(.readable(on: color))
             .frame(width: size, height: size)
             .background(color, in: .circle)
             .accessibilityHidden(true)
+    }
+}
+
+/// An SF Symbol centered on its own shape. As text, a symbol sits on a baseline, so some (a bag, a pin) look low
+/// in a circle; scaled to fit a square, each is centered by its outline.
+struct CenteredSymbol: View {
+    let name: String
+    let side: CGFloat
+
+    var body: some View {
+        Image(systemName: name)
+            .resizable()
+            .scaledToFit()
+            .fontWeight(.semibold)
+            .frame(width: side, height: side)
     }
 }

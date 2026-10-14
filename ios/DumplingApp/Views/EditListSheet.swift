@@ -199,9 +199,8 @@ struct EditListSheet: View {
         LazyVGrid(columns: symbolColumns, spacing: 10) {
             ForEach(symbols, id: \.name) { option in
                 Button { symbol = option.name } label: {
-                    Image(systemName: option.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(option.name == symbol ? .white : .primary)
+                    CenteredSymbol(name: option.name, side: 20)
+                        .foregroundStyle(option.name == symbol ? AnyShapeStyle(.readable(on: color.color)) : AnyShapeStyle(.primary))
                         .frame(width: 40, height: 40)
                         .background(option.name == symbol ? color.color : Color(.tertiarySystemFill), in: .circle)
                 }
