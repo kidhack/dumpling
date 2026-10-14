@@ -405,15 +405,17 @@ struct ItemDetailView: View {
                         Label("Unarchive", systemImage: "tray.and.arrow.up").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(OutlinedButtonStyle())
-                } else if item.isSavedForLater || isMissingFromCalendar {
-                    Button {
-                        item.moveToInbox()
-                        dismiss()
-                    } label: {
-                        Label("Move to Inbox", systemImage: "tray.and.arrow.up").frame(maxWidth: .infinity)
+                } else {
+                    if item.isSavedForLater || isMissingFromCalendar {
+                        Button {
+                            item.moveToInbox()
+                            dismiss()
+                        } label: {
+                            Label("Move to Inbox", systemImage: "tray.and.arrow.up").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(OutlinedButtonStyle())
                     }
-                    .buttonStyle(OutlinedButtonStyle())
-                } else if !item.isFiled {
+                    // Filed items too: they're done with, and Archive is where finished things go.
                     Button {
                         item.archivedAt = .now
                         dismiss()
