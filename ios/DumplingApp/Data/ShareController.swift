@@ -2,6 +2,7 @@ import CloudKit
 import CoreData
 import OSLog
 import UIKit
+import UserNotifications
 
 private let logger = Logger(subsystem: "com.kidhack.dumpling", category: "Sharing")
 
@@ -50,7 +51,26 @@ final class ShareController: NSObject, UICloudSharingControllerDelegate {
 }
 
 /// Accepts list invitations, whether Dumpling is running or launched by tapping the invite.
-final class AppDelegate: NSObject, UIApplicationDelegate {
+/// Also starts nearby alerts, which iOS can launch Dumpling in the background for, and opens their notifications.
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        NearbyAlerts.shared.start()
+        return true
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            didReceive response: UNNotificationResponse) async {
+        guard let id = (response.notification.request.content.userInfo["itemID"] as? String).flatMap(UUID.init) else { return }
+        await MainActor.run { NearbyAlerts.shared.openItemID = id }
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
+    }
+
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession,
                      options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)

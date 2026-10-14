@@ -24,6 +24,8 @@
 	<true/>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Dumpling adds the events you share to your calendar, checks for ones you've already added so it doesn't duplicate them, and links to them.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Dumpling notifies you when you're near a place you asked to hear about, even when the app is closed.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Dumpling shows where you are on the map of your saved places and how far away they are.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>

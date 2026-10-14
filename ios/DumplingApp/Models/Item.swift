@@ -62,6 +62,13 @@ final class Item: NSManagedObject {
         return (try? context.fetch(request)) ?? []
     }
 
+    static func with(id: UUID, in context: NSManagedObjectContext) -> Item? {
+        let request = fetchRequest()
+        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        request.fetchLimit = 1
+        return try? context.fetch(request).first
+    }
+
     convenience init(
         context: NSManagedObjectContext,
         id: UUID = UUID(),
