@@ -9,9 +9,20 @@ private let logger = Logger(subsystem: "com.kidhack.dumpling", category: "Sortin
 @MainActor
 enum Processor {
 
+    /// How long a phone leaves someone else's new item for their phone to sort, before sorting it itself.
+    static let ownerSortWindow: TimeInterval = 10 * 60
+
     /// Returns why the on-device model couldn't run, if that stopped processing early.
-    static func processPending(_ items: [Item], filer: Filer) async -> SystemLanguageModel.Availability.UnavailableReason? {
+    /// `sortingNow` is sorted even if someone else added it (the user asked to sort it again).
+    static func processPending(_ items: [Item], filer: Filer,
+                               sortingNow: UUID? = nil) async -> SystemLanguageModel.Availability.UnavailableReason? {
         for item in items where item.status == "pending" {
+            // On a shared list, only the phone that added an item sorts it, so two phones don't both do the
+            // work; the result syncs over. If it's still unsorted after a while, any phone takes it.
+            if item.id != sortingNow, let creator = item.createdByID, creator != Hearts.myID,
+               Date.now.timeIntervalSince(item.timestamp) < ownerSortWindow {
+                continue
+            }
             guard item.contentURL != nil || item.contentText != nil else {
                 item.status = "kept"
                 item.sortError = "Images can't be sorted yet."

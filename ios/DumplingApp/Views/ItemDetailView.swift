@@ -175,7 +175,7 @@ struct ItemDetailView: View {
         item.sortError = nil
         let all = Item.all(in: modelContext)
         _ = await Processor.processPending([item] + all.filter { $0.id != item.id && $0.status != "pending" },
-                                           filer: filer)
+                                           filer: filer, sortingNow: item.id)
         try? modelContext.save()
     }
 
