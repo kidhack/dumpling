@@ -45,6 +45,32 @@ func parserChecks() {
     let business = #"<script type="application/ld+json">{"@type":"Restaurant","name":"Sirene","address":{"@type":"PostalAddress","streetAddress":"3308 Grand Ave","addressLocality":"Oakland","addressRegion":"CA"}}</script>"#
     check("address from schema.org business", PageReader.parse(html: business).address == "3308 Grand Ave, Oakland, CA")
     check("no address on plain page", PageReader.parse(html: "<p>Just a blog post</p>").address == nil)
+
+    // Opening hours. Dates below are in 2026: Oct 13 is a Tuesday.
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = TimeZone(identifier: "America/New_York")!
+    func at(_ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
+        cal.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour, minute: minute))!
+    }
+    let spec = #"<script type="application/ld+json">{"@type":"BarOrPub","openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":["https://schema.org/Tuesday","https://schema.org/Wednesday"],"opens":"17:00","closes":"02:00"},{"dayOfWeek":"Saturday","opens":"12:00:00","closes":"23:00:00"}]}</script>"#
+    let bar = PageReader.parse(html: spec).hours
+    check("hours from openingHoursSpecification", bar?.spans.count == 3)
+    check("bar open Tuesday 9 PM", bar?.isOpen(at: at(13, 21), calendar: cal) == true)
+    check("bar open after midnight into Wednesday", bar?.isOpen(at: at(14, 1, 30), calendar: cal) == true)
+    check("bar closed Wednesday 3 AM", bar?.isOpen(at: at(14, 3), calendar: cal) == false)
+    check("bar closed Monday night", bar?.isOpen(at: at(12, 21), calendar: cal) == false)
+    check("bar closes 2 AM", bar?.closing(after: at(13, 21), calendar: cal) == at(14, 2))
+    check("bar closed Sunday 1 AM (Saturday isn't overnight)", bar?.isOpen(at: at(18, 1), calendar: cal) == false)
+
+    let line = #"<script type="application/ld+json">{"@type":"Museum","openingHours":["Tu-Su 10:00-17:00","Th 10:00-21:00"]}</script>"#
+    let gallery = PageReader.parse(html: line).hours
+    check("hours from openingHours text", gallery != nil)
+    check("gallery closed Monday", gallery?.isOpen(at: at(12, 12), calendar: cal) == false)
+    check("gallery open Sunday noon", gallery?.isOpen(at: at(18, 12), calendar: cal) == true)
+    check("gallery open Thursday 8 PM", gallery?.isOpen(at: at(15, 20), calendar: cal) == true)
+    check("gallery closed Friday 8 PM", gallery?.isOpen(at: at(16, 20), calendar: cal) == false)
+    check("no hours on plain page", PageReader.parse(html: business).hours == nil)
+    print("  summary:", gallery?.summary ?? [], bar?.summary ?? [])
 }
 
 func show(_ item: Item, page: PageInfo?) async {

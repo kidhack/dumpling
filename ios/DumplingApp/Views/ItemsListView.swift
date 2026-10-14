@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import CoreLocation
 import FoundationModels
 
 enum ItemsSection: String, CaseIterable, Identifiable {
@@ -45,6 +46,8 @@ struct ItemsListView: View {
     let section: ItemsSection
     /// Bumped when the user taps this tab while already on it; resets the filter to All.
     var filterResetToken = 0
+    /// False while another tab is showing; leaving a tab puts its map back to the list.
+    var isActiveTab = true
     @Environment(\.managedObjectContext) private var modelContext
     @Environment(ItemPipeline.self) private var pipeline
     /// Newest first.
@@ -63,6 +66,9 @@ struct ItemsListView: View {
     @State private var selection = Set<UUID>()
     @State private var listPickerItems: [Item] = []
     @State private var showingListPicker = false
+    @State private var showingMap = false
+    @State private var selectedPin: UUID?
+    @State private var userLocation: CLLocation?
 
     private var isSelecting: Bool { editMode.isEditing }
     private var inSection: [Item] { items.filter(section.contains) }
@@ -136,7 +142,13 @@ struct ItemsListView: View {
             .sheet(isPresented: $showingListPicker) {
                 ListPickerSheet(items: listPickerItems) { endSelecting() }
             }
-            .screenHeader {
+            .overlay {
+                if showingMap {
+                    ItemsMapView(items: visible, selection: $selectedPin, userLocation: $userLocation)
+                        .transition(.opacity)
+                }
+            }
+            .screenHeader(alwaysFaded: showingMap) {
                 VStack(spacing: 8) {
                     header
                     if section == .inbox, let reason = pipeline.modelUnavailable {
@@ -163,8 +175,29 @@ struct ItemsListView: View {
                 if isSelecting {
                     selectionBar
                 } else if !inSection.isEmpty {
-                    CategoryFilterBar(selection: $filter, available: availableFilters)
+                    VStack(spacing: 0) {
+                        if showingMap, let pin = ItemsMapView.pins(for: visible).first(where: { $0.id == selectedPin }) {
+                            PlaceCard(item: pin.item, coordinate: pin.coordinate, userLocation: userLocation)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, CategoryFilterBar.mapButtonClearance + 8)
+                                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                        }
+                        CategoryFilterBar(selection: $filter, available: availableFilters,
+                                          showingMap: $showingMap)
+                    }
+                    .animation(.easeOut(duration: 0.2), value: selectedPin)
                 }
+            }
+            .animation(.easeInOut(duration: 0.25), value: showingMap)
+            // The map is only for places: any other filter, or leaving the tab, goes back to the list.
+            .onChange(of: filter) { _, new in
+                if new != .location { showingMap = false }
+            }
+            .onChange(of: isActiveTab) { _, active in
+                if !active { showingMap = false }
+            }
+            .onChange(of: showingMap) { _, shown in
+                if !shown { selectedPin = nil }
             }
             // Tapping this tab while on it: back to All, back to the top.
             .onChange(of: filterResetToken) { _, _ in
@@ -188,7 +221,7 @@ struct ItemsListView: View {
                     .font(.title2.bold())
             }
         } trailing: {
-            if !inSection.isEmpty {
+            if !inSection.isEmpty && !showingMap {
                 Button(isSelecting ? "Done" : "Select") {
                     if isSelecting { endSelecting() } else { editMode = .active }
                 }
@@ -351,12 +384,36 @@ struct ItemRowView: View {
             }
 
             Spacer(minLength: 0)
+            NearbyBadge(item: item)
             if item.heartCount > 0 {
                 HeartGlyph(mine: item.heartedByMe, others: item.otherHeartCount)
                     .font(.subheadline)
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// On places with Notify Me Nearby on: a gray arrow, or green with the distance when the user is within range.
+struct NearbyBadge: View {
+    let item: Item
+
+    var body: some View {
+        let alerts = NearbyAlerts.shared
+        if alerts.isWatching(item) {
+            let close = alerts.isClose(to: item)
+            HStack(spacing: 3) {
+                Image(systemName: "location.fill")
+                if close, let meters = alerts.distance(to: item) {
+                    Text(NearbyAlerts.format(meters))
+                        .monospacedDigit()
+                }
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(close ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
+            .accessibilityElement()
+            .accessibilityLabel(close ? "Nearby" : "Notify me nearby is on")
+        }
     }
 }
 

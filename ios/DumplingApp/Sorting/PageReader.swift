@@ -18,6 +18,8 @@ struct PageInfo: Sendable, Equatable {
     var address: String?
     /// A place named by a maps share link (Google or Apple), read from the redirected URL.
     var place: Place?
+    /// Weekly hours from structured business data.
+    var hours: OpeningHours?
 }
 
 enum PageReader {
@@ -45,7 +47,8 @@ enum PageReader {
             title: meta("og:title", in: html) ?? meta("twitter:title", in: html) ?? titleTag(in: html),
             description: meta("og:description", in: html) ?? meta("description", in: html),
             event: jsonLDEvent(in: html) ?? embeddedEvent(in: html),
-            address: jsonLDAddress(in: html) ?? textAddress(in: html)
+            address: jsonLDAddress(in: html) ?? textAddress(in: html),
+            hours: jsonLDHours(in: html)
         )
     }
 
@@ -98,6 +101,17 @@ enum PageReader {
                   let json = try? JSONSerialization.jsonObject(with: data) else { continue }
             for node in flatten(json) {
                 if let address = postalAddress(node["address"]) { return address }
+            }
+        }
+        return nil
+    }
+
+    private static func jsonLDHours(in html: String) -> OpeningHours? {
+        for block in allCaptures(#"<script[^>]*type=["']application/ld\+json["'][^>]*>(.*?)</script>"#, in: html) {
+            guard let data = block.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) else { continue }
+            for node in flatten(json) {
+                if let hours = OpeningHours.from(schemaNode: node) { return hours }
             }
         }
         return nil

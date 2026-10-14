@@ -42,27 +42,47 @@ struct ContentView: View {
         return .section(.inbox)
     }
 
+    /// The item a tapped nearby notification asks to show.
+    private var notifiedItem: Binding<Item?> {
+        Binding {
+            NearbyAlerts.shared.openItemID.flatMap { Item.with(id: $0, in: modelContext) }
+        } set: { item in
+            if item == nil { NearbyAlerts.shared.openItemID = nil }
+        }
+    }
+
     var body: some View {
         TabView(selection: tabSelection) {
             Tab(ItemsSection.inbox.rawValue, systemImage: ItemsSection.inbox.systemImage, value: AppTab.section(.inbox)) {
-                ItemsListView(section: .inbox, filterResetToken: filterResets[.inbox, default: 0])
+                ItemsListView(section: .inbox, filterResetToken: filterResets[.inbox, default: 0],
+                              isActiveTab: selection == .section(.inbox))
             }
             Tab("Lists", systemImage: "list.bullet", value: AppTab.lists) {
                 ListsView(resetToken: listsReset)
             }
             ForEach([ItemsSection.filed, .archived]) { section in
                 Tab(section.rawValue, systemImage: section.systemImage, value: AppTab.section(section)) {
-                    ItemsListView(section: section, filterResetToken: filterResets[section, default: 0])
+                    ItemsListView(section: section, filterResetToken: filterResets[section, default: 0],
+                              isActiveTab: selection == .section(section))
                 }
             }
         }
         .environment(pipeline)
+        .sheet(item: notifiedItem) { item in
+            NavigationStack { ItemDetailView(item: item, filer: pipeline.filer) }
+        }
         .task {
+            NearbyAlerts.shared.appBecame(active: scenePhase == .active)
             await Hearts.prepare(modelContext)
             await pipeline.refresh(modelContext)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await pipeline.refresh(modelContext) } }
+            NearbyAlerts.shared.appBecame(active: phase == .active)
+            if phase == .active {
+                Task { await pipeline.refresh(modelContext) }
+                // Re-pick the closest places to watch for where the user is now.
+                if !NearbyAlerts.shared.watches.isEmpty { Task { await NearbyAlerts.shared.sync() } }
+            }
         }
     }
 }

@@ -36,6 +36,7 @@ struct ItemDetailView: View {
                 if let latitude = item.latitude, let longitude = item.longitude {
                     PlaceMapRow(name: item.displayTitle, address: item.location,
                                 coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
+                    NearbyRow(item: item)
                 }
                 attribution
             } footer: {
