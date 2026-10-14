@@ -94,7 +94,7 @@ enum Processor {
     /// it has none. Falls back to the address alone only when it's a street address.
     @MainActor
     static func findPlace(for item: Item, near: CLLocationCoordinate2D?) async -> Place? {
-        let name = placeName(item.displayTitle)
+        let name = Sorter.placeName(item.displayTitle)
         var address = item.location.flatMap { $0 == item.displayTitle || $0 == name ? nil : $0 }
         if address == nil, let url = item.contentURL.flatMap(URL.init(string:)), let page = await PageReader.fetch(url) {
             if let place = page.place, place.coordinate != nil { return place }
@@ -105,16 +105,6 @@ enum Processor {
             return Place(name: name, address: address, latitude: coordinate.latitude, longitude: coordinate.longitude)
         }
         return nil
-    }
-
-    /// Page titles like "The Franklin Mortgage & Investment Co. | Bar in Philadelphia" name the place first.
-    static func placeName(_ title: String) -> String {
-        for separator in [" | ", " • ", " · ", " – ", " — ", " - "] {
-            if let first = title.components(separatedBy: separator).first, first.count >= 2, first != title {
-                return first.trimmingCharacters(in: .whitespaces)
-            }
-        }
-        return title
     }
 
     /// "614 n. 2nd st, Philadelphia" is; "Philadelphia, PA" isn't (it would pin the city center).

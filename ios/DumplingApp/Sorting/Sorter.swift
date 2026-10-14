@@ -102,6 +102,10 @@ enum Sorter {
             plan.allDay = event.allDay
             // The model's location guesses from page prose are unreliable; trust only structured venue data here.
             plan.location = event.location
+        } else if item.quickTag == nil, plan.start == nil, plan.category != .location, page?.looksLikeVenue == true {
+            // A restaurant's or shop's own website is a place, whatever the model said.
+            plan.category = .location
+            plan.title = page?.title.map(placeName) ?? plan.title
         } else if item.quickTag == nil, plan.start == nil, plan.category != .location {
             // Undated items with a maps link or an address in what the user shared are places, whatever the
             // model said. A page's footer address alone isn't enough: plenty of non-place pages print one.
@@ -120,8 +124,21 @@ enum Sorter {
         if plan.category == .location {
             let found = detectedAddress(in: [item.contentText, item.userNote].compactMap { $0 }.joined(separator: "\n")) ?? page?.address
             plan.location = found ?? plan.location
+        } else if plan.category != .event {
+            // Only places and events have an address; for anything else the model's guess was the URL or title.
+            plan.location = nil
         }
         return plan
+    }
+
+    /// Page titles like "The Franklin Mortgage & Investment Co. | Bar in Philadelphia" name the place first.
+    static func placeName(_ title: String) -> String {
+        for separator in [" | ", " • ", " · ", " – ", " — ", " - "] {
+            if let first = title.components(separatedBy: separator).first, first.count >= 2, first != title {
+                return first.trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return title
     }
 
     static func isMapsLink(_ urlString: String?) -> Bool {

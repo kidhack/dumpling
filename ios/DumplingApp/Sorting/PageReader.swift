@@ -20,6 +20,32 @@ struct PageInfo: Sendable, Equatable {
     var place: Place?
     /// Weekly hours from structured business data.
     var hours: OpeningHours?
+    /// The page's structured data says it's a place you go (a restaurant, bar, shop, museum...).
+    var isVenue = false
+    /// The page's visible text talks like a restaurant or bar (two or more of `venueTextWords`).
+    var textReadsLikeVenue = false
+
+    /// A venue's own website: structured data says so, or it prints a street address and its title or
+    /// description reads like one. Restaurant sites otherwise often came out as ideas or links.
+    var looksLikeVenue: Bool {
+        if isVenue { return true }
+        guard address != nil else { return false }
+        if textReadsLikeVenue { return true }
+        let text = [title, description].compactMap { $0 }.joined(separator: " ").lowercased()
+        return Self.venueWords.contains { text.contains($0) }
+    }
+
+    /// Words a restaurant's or bar's own page uses, for small sites with no description or structured data
+    /// (Sirene's says "Reserve your table", "dinner menu / wine list"). Not "menu": every site has a nav menu.
+    static let venueTextWords = ["restaurant", "reservation", "reserve a table", "reserve your table", "dinner",
+                                 "lunch", "brunch", "happy hour", "wine list", "cocktail", "takeout", "dine in",
+                                 "private events", "bakery", "brewery", "taproom"]
+
+    /// Food, drink and culture words. Not "shop", "store" or "market": they show up on plenty of company
+    /// sites ("App Store", "marketing") that also print an office address.
+    static let venueWords = ["restaurant", "café", "cafe", "coffee", "bakery", "bar ", " bar", "pub", "brewery",
+                             "wine", "cocktail", "menu", "reservation", "dining", "kitchen", "eatery", "bistro",
+                             "trattoria", "taqueria", "pizzeria", "izakaya", "museum", "gallery", "hotel"]
 }
 
 enum PageReader {
@@ -48,7 +74,9 @@ enum PageReader {
             description: meta("og:description", in: html) ?? meta("description", in: html),
             event: jsonLDEvent(in: html) ?? embeddedEvent(in: html),
             address: jsonLDAddress(in: html) ?? textAddress(in: html),
-            hours: jsonLDHours(in: html)
+            hours: jsonLDHours(in: html),
+            isVenue: jsonLDIsVenue(in: html),
+            textReadsLikeVenue: readsLikeVenue(visibleText(in: html))
         )
     }
 
@@ -106,6 +134,26 @@ enum PageReader {
         return nil
     }
 
+    /// schema.org types for places people go. Most businesses use LocalBusiness or a subtype of it.
+    private static let venueTypes: Set<String> = [
+        "localbusiness", "foodestablishment", "restaurant", "barorpub", "cafeorcoffeeshop", "bakery", "brewery",
+        "winery", "distillery", "fastfoodrestaurant", "icecreamshop", "nightclub", "store", "museum",
+        "artgallery", "touristattraction", "lodgingbusiness", "hotel", "park", "zoo", "aquarium",
+        "movietheater", "musicvenue", "performingartstheater", "entertainmentbusiness",
+    ]
+
+    private static func jsonLDIsVenue(in html: String) -> Bool {
+        for block in allCaptures(#"<script[^>]*type=["']application/ld\+json["'][^>]*>(.*?)</script>"#, in: html) {
+            guard let data = block.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) else { continue }
+            for node in flatten(json) {
+                let types = (node["@type"] as? [String]) ?? (node["@type"] as? String).map { [$0] } ?? []
+                if types.contains(where: { venueTypes.contains($0.lowercased()) }) { return true }
+            }
+        }
+        return false
+    }
+
     private static func jsonLDHours(in html: String) -> OpeningHours? {
         for block in allCaptures(#"<script[^>]*type=["']application/ld\+json["'][^>]*>(.*?)</script>"#, in: html) {
             guard let data = block.data(using: .utf8),
@@ -126,13 +174,23 @@ enum PageReader {
     }
 
     /// Small business sites often only print their address in the footer.
-    private static func textAddress(in html: String) -> String? {
+    /// The page's text without its code or markup, one block per line, trimmed to the first 40,000 characters.
+    private static func visibleText(in html: String) -> String {
         let withoutCode = html.replacingOccurrences(of: #"<(script|style|noscript)[^>]*>.*?</\1>"#, with: " ",
                                                     options: [.regularExpression, .caseInsensitive])
         let text = decodeEntities(withoutCode.replacingOccurrences(of: #"<[^>]+>"#, with: "\n", options: .regularExpression))
             .replacingOccurrences(of: #"[ \t]+"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s*\n\s*"#, with: "\n", options: .regularExpression)
-        let sample = String(text.prefix(40_000))
+        return String(text.prefix(40_000))
+    }
+
+    private static func readsLikeVenue(_ text: String) -> Bool {
+        let lowered = text.lowercased()
+        return PageInfo.venueTextWords.filter { lowered.contains($0) }.count >= 2
+    }
+
+    private static func textAddress(in html: String) -> String? {
+        let sample = visibleText(in: html)
         guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.address.rawValue),
               let match = detector.firstMatch(in: sample, range: NSRange(sample.startIndex..., in: sample)),
               let range = Range(match.range, in: sample)

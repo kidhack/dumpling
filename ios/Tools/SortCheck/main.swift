@@ -71,6 +71,19 @@ func parserChecks() {
     check("gallery closed Friday 8 PM", gallery?.isOpen(at: at(16, 20), calendar: cal) == false)
     check("no hours on plain page", PageReader.parse(html: business).hours == nil)
     print("  summary:", gallery?.summary ?? [], bar?.summary ?? [])
+
+    // Venue websites.
+    let restaurantLD = #"<title>Sirene</title><script type="application/ld+json">{"@type":"Restaurant","name":"Sirene"}</script>"#
+    check("schema.org Restaurant is a venue", PageReader.parse(html: restaurantLD).looksLikeVenue)
+    let barWords = "<title>Bar Hygge | Brewpub</title><footer><p>1720 Fairmount Ave<br>Philadelphia, PA 19130</p></footer>"
+    check("bar title with an address is a venue", PageReader.parse(html: barWords).looksLikeVenue)
+    let saas = "<title>DashOne — Smart Dashboards for Your Home</title><meta name=\"description\" content=\"Marketing made easy on the App Store\"><footer><p>500 Market St<br>San Francisco, CA 94105</p></footer>"
+    check("company site with an office address isn't a venue", !PageReader.parse(html: saas).looksLikeVenue)
+    let small = "<title>Sirene</title><body><p>Reserve your table here!</p><p>DINNER MENU / WINE LIST</p><footer><p>3308 Grand Ave<br>Oakland, CA</p></footer></body>"
+    check("small restaurant site with no metadata is a venue", PageReader.parse(html: small).looksLikeVenue)
+    let navMenu = "<title>Acme</title><body><nav>Menu</nav><p>We build software. Lunch and learn every Friday.</p><footer><p>500 Market St<br>San Francisco, CA 94105</p></footer></body>"
+    check("one food word and a nav menu isn't a venue", !PageReader.parse(html: navMenu).looksLikeVenue)
+    check("restaurant words without an address aren't enough", !PageReader.parse(html: "<title>10 best restaurant recipes</title>").looksLikeVenue)
 }
 
 func show(_ item: Item, page: PageInfo?) async {
