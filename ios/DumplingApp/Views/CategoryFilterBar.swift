@@ -4,6 +4,7 @@ import SwiftUI
 struct CategoryFilterBar: View {
     @Binding var selection: CategoryKind?
     let available: [CategoryKind]
+    var overMap = false
 
     /// Shared with the Select mode action bar so switching between them doesn't move anything.
     static let chipHeight: CGFloat = 36
@@ -37,16 +38,18 @@ struct CategoryFilterBar: View {
         }
         .padding(.top, Self.topPadding)
         .padding(.bottom, Self.bottomPadding)
-        // Blur cards out beneath the bar so the chips don't sit on top of them.
-        .bottomBarFade()
+        .mapFrost(overMap)
         .animation(.snappy(duration: 0.2), value: selection)
+        .animation(.easeInOut(duration: 0.25), value: overMap)
     }
 
     private func chips(stretchSelected: Bool) -> some View {
-        HStack(spacing: 5) {
-            chip(nil, label: "All", systemImage: "square.stack", tint: .accentColor, stretch: stretchSelected)
-            ForEach(available) { kind in
-                chip(kind, label: kind.label, systemImage: kind.systemImage, tint: kind.tint, stretch: stretchSelected)
+        GlassEffectContainer(spacing: 5) {
+            HStack(spacing: 5) {
+                chip(nil, label: "All", systemImage: "square.stack", tint: .accentColor, stretch: stretchSelected)
+                ForEach(available) { kind in
+                    chip(kind, label: kind.label, systemImage: kind.systemImage, tint: kind.tint, stretch: stretchSelected)
+                }
             }
         }
     }
@@ -68,7 +71,8 @@ struct CategoryFilterBar: View {
             .foregroundStyle(isSelected ? .white : tint)
             .padding(.horizontal, isSelected ? 12 : 0)
             .frame(minWidth: Self.chipHeight, maxWidth: isSelected && stretch ? .infinity : nil, minHeight: Self.chipHeight)
-            .background(isSelected ? tint : tint.opacity(0.15), in: .capsule)
+            // Glass, so the chips stay readable over cards (or the map) scrolling beneath them.
+            .glassEffect(isSelected ? .regular.tint(tint) : .regular, in: .capsule)
         }
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("filterChips")) } action: { frame in
             if stretch { chipFrames[kind?.rawValue ?? "all"] = frame }

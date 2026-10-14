@@ -18,27 +18,29 @@ struct ScreenHeader<Leading: View, Trailing: View>: View {
 }
 
 extension View {
-    /// Frosts what scrolls beneath a bar pinned above the tab bar: the blur fades in from well above the
-    /// bar and is full strength behind its controls, so cards (or the map) soften out instead of cutting off.
-    func bottomBarFade() -> some View {
+    /// Bars use the system's scroll edge effect (`safeAreaBar`), which a map doesn't get since it isn't a
+    /// scroll view. Over the map, this frosts it beneath a bottom bar instead, fading in from above the bar.
+    func mapFrost(_ active: Bool) -> some View {
         background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .mask {
-                    // In points rather than gradient stops, because the bar's height changes with the safe area below it.
-                    VStack(spacing: 0) {
-                        LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                            .frame(height: 40)
-                        Color.black
+            if active {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .mask {
+                        VStack(spacing: 0) {
+                            LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                                .frame(height: 40)
+                            Color.black
+                        }
                     }
-                }
-                .padding(.top, -40)
-                .ignoresSafeArea(edges: .bottom)
+                    .padding(.top, -40)
+                    .ignoresSafeArea(edges: .bottom)
+                    .transition(.opacity)
+            }
         }
     }
 
-    /// Pins `header` above a scrolling list. Cards blur out beneath it once the list is scrolled; at rest
-    /// nothing covers the first card. Over a map it's always on.
+    /// Pins `header` above a scrolling list, with the system's soft edge effect beneath it. Over a map
+    /// (not a scroll view, so no edge effect) the map is frosted beneath it instead.
     func screenHeader<Header: View>(overMap: Bool = false, @ViewBuilder _ header: () -> Header) -> some View {
         modifier(ScreenHeaderModifier(header: header(), overMap: overMap))
     }
@@ -47,32 +49,27 @@ extension View {
 private struct ScreenHeaderModifier<Header: View>: ViewModifier {
     let header: Header
     let overMap: Bool
-    @State private var isScrolled = false
 
     func body(content: Content) -> some View {
+        // A bar, not an inset, so content scrolling under it gets the system's soft edge effect.
         content
-            .onScrollGeometryChange(for: Bool.self) { geo in
-                geo.contentOffset.y + geo.contentInsets.top > 2
-            } action: { _, scrolled in
-                // No withAnimation here: it animated the list's top inset mid-bounce, so pulling past the
-                // top settled near row 2 and then snapped. Only the fade's opacity animates (below).
-                isScrolled = scrolled
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
+            .safeAreaBar(edge: .top, spacing: 0) {
                 header
                     .padding(.bottom, 4)
                     .background {
-                        Rectangle()
-                            .fill(.ultraThinMaterial)
-                            .mask {
-                                LinearGradient(stops: [.init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
-                                               startPoint: .top, endPoint: .bottom)
-                            }
-                            .opacity(isScrolled || overMap ? 1 : 0)
-                            .padding(.bottom, -44)
-                            .ignoresSafeArea(edges: .top)
-                            .animation(.easeOut(duration: 0.2), value: isScrolled || overMap)
+                        if overMap {
+                            Rectangle()
+                                .fill(.ultraThinMaterial)
+                                .mask {
+                                    LinearGradient(stops: [.init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
+                                                   startPoint: .top, endPoint: .bottom)
+                                }
+                                .padding(.bottom, -44)
+                                .ignoresSafeArea(edges: .top)
+                                .transition(.opacity)
+                        }
                     }
+                    .animation(.easeInOut(duration: 0.25), value: overMap)
             }
     }
 }

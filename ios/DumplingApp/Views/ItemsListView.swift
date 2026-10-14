@@ -171,7 +171,8 @@ struct ItemsListView: View {
                     }
                 }
             }
-            .safeAreaInset(edge: .bottom) {
+            // A bar, not an inset, so cards scrolling under it get the system's soft edge effect.
+            .safeAreaBar(edge: .bottom) {
                 if isSelecting {
                     selectionBar
                 } else if !inSection.isEmpty {
@@ -188,7 +189,7 @@ struct ItemsListView: View {
                                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
                                 .zIndex(1)
                         }
-                        CategoryFilterBar(selection: $filter, available: availableFilters)
+                        CategoryFilterBar(selection: $filter, available: availableFilters, overMap: showingMap)
                     }
                     .animation(.easeOut(duration: 0.2), value: selectedPin)
                     .animation(.snappy(duration: 0.2), value: filter)
@@ -280,7 +281,6 @@ struct ItemsListView: View {
         .padding(.horizontal, 20)
         .padding(.top, CategoryFilterBar.topPadding)
         .padding(.bottom, CategoryFilterBar.bottomPadding)
-        .bottomBarFade()
     }
 
     private func endSelecting() {
