@@ -258,8 +258,16 @@ struct ItemsListView: View {
 // MARK: - Row
 
 struct ItemRowView: View {
-    let item: Item
+    @ObservedObject var item: Item
     let section: ItemsSection
+    /// Watched here, on the always-present row: the dot itself isn't there to notice when processing ends.
+    @State private var processing: ProcessingDot.Phase
+
+    init(item: Item, section: ItemsSection) {
+        self.item = item
+        self.section = section
+        _processing = State(initialValue: item.status == "pending" ? .processing : .hidden)
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -282,7 +290,7 @@ struct ItemRowView: View {
             }
 
             Spacer(minLength: 0)
-            ProcessingDot(item: item)
+            ProcessingDot(phase: processing)
             NearbyBadge(item: item)
             if item.heartCount > 0 {
                 HeartGlyph(mine: item.heartedByMe, others: item.otherHeartCount)
@@ -290,6 +298,18 @@ struct ItemRowView: View {
             }
         }
         .padding(.vertical, 2)
+        .onChange(of: item.status) { old, new in
+            if new == "pending" {
+                processing = .processing
+            } else if old == "pending" {
+                withAnimation(.easeInOut(duration: 0.3)) { processing = .done }
+                Task {
+                    try? await Task.sleep(for: .seconds(2))
+                    guard processing == .done else { return }
+                    withAnimation(.easeOut(duration: 0.4)) { processing = .hidden }
+                }
+            }
+        }
     }
 }
 
@@ -340,50 +360,31 @@ struct ItemsBottomControls: View {
     }
 }
 
-/// A pulsing orange dot while an item is being read and organized. When it's done the dot turns green, then
-/// fades out after a couple of seconds.
+/// A pulsing orange dot while an item is being read and organized; green once it's done, before fading out.
 struct ProcessingDot: View {
-    @ObservedObject var item: Item
-    @State private var phase: Phase = .hidden
-
-    private enum Phase { case hidden, processing, done }
+    enum Phase { case hidden, processing, done }
+    let phase: Phase
 
     var body: some View {
-        Group {
-            switch phase {
-            case .hidden:
-                EmptyView()
-            case .processing:
-                dot(.orange)
-                    .phaseAnimator([1.0, 0.3]) { dot, opacity in
-                        dot.opacity(opacity)
-                    } animation: { _ in .easeInOut(duration: 0.8) }
-                    .accessibilityLabel("Processing")
-            case .done:
-                dot(.green)
-                    .accessibilityLabel("Done")
-            }
+        switch phase {
+        case .hidden:
+            EmptyView()
+        case .processing:
+            Circle()
+                .fill(.orange)
+                .frame(width: 8, height: 8)
+                .phaseAnimator([1.0, 0.3]) { dot, opacity in
+                    dot.opacity(opacity)
+                } animation: { _ in .easeInOut(duration: 0.8) }
+                .transition(.opacity)
+                .accessibilityLabel("Processing")
+        case .done:
+            Circle()
+                .fill(.green)
+                .frame(width: 8, height: 8)
+                .transition(.opacity)
+                .accessibilityLabel("Done")
         }
-        .onAppear { phase = item.status == "pending" ? .processing : .hidden }
-        .onChange(of: item.status) { old, new in
-            if new == "pending" {
-                phase = .processing
-            } else if old == "pending" {
-                withAnimation(.easeInOut(duration: 0.3)) { phase = .done }
-                Task {
-                    try? await Task.sleep(for: .seconds(2))
-                    guard phase == .done else { return }
-                    withAnimation(.easeOut(duration: 0.4)) { phase = .hidden }
-                }
-            }
-        }
-    }
-
-    private func dot(_ color: Color) -> some View {
-        Circle()
-            .fill(color)
-            .frame(width: 8, height: 8)
-            .transition(.opacity)
     }
 }
 
