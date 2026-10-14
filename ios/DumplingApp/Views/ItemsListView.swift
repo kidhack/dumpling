@@ -282,13 +282,7 @@ struct ItemRowView: View {
             }
 
             Spacer(minLength: 0)
-            if item.status == "pending" {
-                // Still being read and organized; shown like the other row indicators.
-                Circle()
-                    .fill(.orange)
-                    .frame(width: 8, height: 8)
-                    .accessibilityLabel("Processing")
-            }
+            ProcessingDot(item: item)
             NearbyBadge(item: item)
             if item.heartCount > 0 {
                 HeartGlyph(mine: item.heartedByMe, others: item.otherHeartCount)
@@ -343,6 +337,53 @@ struct ItemsBottomControls: View {
         }
         .animation(.easeOut(duration: 0.2), value: selectedPin)
         .animation(.snappy(duration: 0.2), value: filter)
+    }
+}
+
+/// A pulsing orange dot while an item is being read and organized. When it's done the dot turns green, then
+/// fades out after a couple of seconds.
+struct ProcessingDot: View {
+    @ObservedObject var item: Item
+    @State private var phase: Phase = .hidden
+
+    private enum Phase { case hidden, processing, done }
+
+    var body: some View {
+        Group {
+            switch phase {
+            case .hidden:
+                EmptyView()
+            case .processing:
+                dot(.orange)
+                    .phaseAnimator([1.0, 0.3]) { dot, opacity in
+                        dot.opacity(opacity)
+                    } animation: { _ in .easeInOut(duration: 0.8) }
+                    .accessibilityLabel("Processing")
+            case .done:
+                dot(.green)
+                    .accessibilityLabel("Done")
+            }
+        }
+        .onAppear { phase = item.status == "pending" ? .processing : .hidden }
+        .onChange(of: item.status) { old, new in
+            if new == "pending" {
+                phase = .processing
+            } else if old == "pending" {
+                withAnimation(.easeInOut(duration: 0.3)) { phase = .done }
+                Task {
+                    try? await Task.sleep(for: .seconds(2))
+                    guard phase == .done else { return }
+                    withAnimation(.easeOut(duration: 0.4)) { phase = .hidden }
+                }
+            }
+        }
+    }
+
+    private func dot(_ color: Color) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: 8, height: 8)
+            .transition(.opacity)
     }
 }
 
