@@ -45,6 +45,9 @@ extension View {
     func cardList() -> some View {
         listSectionSpacing(10)
             .scrollEdgeEffectStyle(.soft, for: .all)
+            // Rows are plain now, so the inset a card needed from the screen edges is just empty space. Without
+            // it, row icons line up with the header and filter row.
+            .contentMargins(.horizontal, 0, for: .scrollContent)
     }
 
     /// Pins `header` above a scrolling list, with the system's soft edge effect beneath it.
