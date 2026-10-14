@@ -180,6 +180,8 @@ struct ListDetailView: View {
                 .accessibilityLabel("\(list.name), \(subtitle), List Details")
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 16))
+                .listRowSeparator(.hidden)
+                .listSectionSeparator(.hidden)
             }
             Section {
                 ForEach(visible) { item in

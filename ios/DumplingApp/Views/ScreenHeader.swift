@@ -38,6 +38,8 @@ extension View {
     func plainRow() -> some View {
         listRowBackground(Color.clear)
             .listRowSeparatorTint(Color(.separator).opacity(0.5))
+            // Only lines between rows: not the group's top and bottom edges, which showed above the first row.
+            .listSectionSeparator(.hidden)
     }
 
     /// The card list style shared by every items screen: spacing between cards, and the soft edge under the
