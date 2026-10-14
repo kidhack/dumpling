@@ -18,6 +18,6 @@ struct CategoryIcon: View {
             .foregroundStyle(category?.tint ?? .secondary)
             // Fixed height so tall symbols (the map pin) don't make some cards taller than others.
             .frame(width: 28, height: 22)
-            .accessibilityLabel(category?.label ?? "Not sorted yet")
+            .accessibilityLabel(category?.label ?? "Processing")
     }
 }

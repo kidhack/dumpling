@@ -11,7 +11,7 @@ final class Item: NSManagedObject {
     @NSManaged var sourceApp: String?
     @NSManaged var userNote: String?
     @NSManaged var quickTag: String?
-    /// "pending" (not sorted yet) | "filed" (in Reminders/Calendar) | "kept" (stays in Dumpling) | "failed"
+    /// "pending" (processing: not sorted yet) | "filed" (in Reminders/Calendar) | "kept" (stays in Dumpling) | "failed"
     @NSManaged var status: String
     @NSManaged var syncedAt: Date?
 
@@ -117,7 +117,7 @@ final class Item: NSManagedObject {
 
     var statusLabel: String {
         switch status {
-        case "pending": return "Not sorted yet"
+        case "pending": return "Processing"
         case "filed":   return filedTo ?? "Filed"
         case "kept":    return "Kept in Dumpling"
         case "failed":  return "Couldn't file"

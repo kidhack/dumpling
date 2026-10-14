@@ -274,7 +274,7 @@ struct ItemRowView: View {
                     Label(item.statusLabel, systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.orange)
-                } else if item.status != "kept" {
+                } else if item.status != "kept" && item.status != "pending" {
                     Text(item.statusLabel)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -282,6 +282,13 @@ struct ItemRowView: View {
             }
 
             Spacer(minLength: 0)
+            if item.status == "pending" {
+                // Still being read and organized; shown like the other row indicators.
+                Circle()
+                    .fill(.orange)
+                    .frame(width: 8, height: 8)
+                    .accessibilityLabel("Processing")
+            }
             NearbyBadge(item: item)
             if item.heartCount > 0 {
                 HeartGlyph(mine: item.heartedByMe, others: item.otherHeartCount)
