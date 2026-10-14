@@ -260,14 +260,6 @@ struct ItemsListView: View {
 struct ItemRowView: View {
     @ObservedObject var item: Item
     let section: ItemsSection
-    /// Watched here, on the always-present row: the dot itself isn't there to notice when processing ends.
-    @State private var processing: ProcessingDot.Phase
-
-    init(item: Item, section: ItemsSection) {
-        self.item = item
-        self.section = section
-        _processing = State(initialValue: item.status == "pending" ? .processing : .hidden)
-    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -278,6 +270,7 @@ struct ItemRowView: View {
                     .lineLimit(1)
 
                 // "Kept" is the normal state for unfiled items, so only show where filed items went and problems.
+                // Processing shows as the hourglass in place of the category icon.
                 if item.status == "failed" {
                     Label(item.statusLabel, systemImage: "exclamationmark.triangle")
                         .font(.caption)
@@ -290,7 +283,6 @@ struct ItemRowView: View {
             }
 
             Spacer(minLength: 0)
-            ProcessingDot(phase: processing)
             NearbyBadge(item: item)
             if item.heartCount > 0 {
                 HeartGlyph(mine: item.heartedByMe, others: item.otherHeartCount)
@@ -298,18 +290,6 @@ struct ItemRowView: View {
             }
         }
         .padding(.vertical, 2)
-        .onChange(of: item.status) { old, new in
-            if new == "pending" {
-                processing = .processing
-            } else if old == "pending" {
-                withAnimation(.easeInOut(duration: 0.3)) { processing = .done }
-                Task {
-                    try? await Task.sleep(for: .seconds(2))
-                    guard processing == .done else { return }
-                    withAnimation(.easeOut(duration: 0.4)) { processing = .hidden }
-                }
-            }
-        }
     }
 }
 
@@ -357,34 +337,6 @@ struct ItemsBottomControls: View {
         }
         .animation(.easeOut(duration: 0.2), value: selectedPin)
         .animation(.snappy(duration: 0.2), value: filter)
-    }
-}
-
-/// A pulsing orange dot while an item is being read and organized; green once it's done, before fading out.
-struct ProcessingDot: View {
-    enum Phase { case hidden, processing, done }
-    let phase: Phase
-
-    var body: some View {
-        switch phase {
-        case .hidden:
-            EmptyView()
-        case .processing:
-            Circle()
-                .fill(.orange)
-                .frame(width: 8, height: 8)
-                .phaseAnimator([1.0, 0.3]) { dot, opacity in
-                    dot.opacity(opacity)
-                } animation: { _ in .easeInOut(duration: 0.8) }
-                .transition(.opacity)
-                .accessibilityLabel("Processing")
-        case .done:
-            Circle()
-                .fill(.green)
-                .frame(width: 8, height: 8)
-                .transition(.opacity)
-                .accessibilityLabel("Done")
-        }
     }
 }
 
