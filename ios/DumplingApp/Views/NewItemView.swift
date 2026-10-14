@@ -45,6 +45,15 @@ struct NewItemView: View {
                 }
             }
             .onAppear { contentFocused = true }
+            // Like the share sheet: picking a category saves. Add still saves without one.
+            .onChange(of: category) { _, picked in
+                guard picked != nil else { return }
+                if trimmedContent.isEmpty {
+                    contentFocused = true
+                } else {
+                    add()
+                }
+            }
         }
     }
 
