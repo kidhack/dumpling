@@ -18,42 +18,27 @@ struct ScreenHeader<Leading: View, Trailing: View>: View {
 }
 
 extension View {
-    /// Fades the list out behind a bar pinned above the tab bar: starts well above the bar and is solid
-    /// before reaching the bar's content, so cards don't show through its controls.
-    /// Over a map it's frosted instead: the map blurs out under the bar rather than fading to the background.
-    func bottomBarFade(overMap: Bool = false) -> some View {
+    /// Frosts what scrolls beneath a bar pinned above the tab bar: the blur fades in from well above the
+    /// bar and is full strength behind its controls, so cards (or the map) soften out instead of cutting off.
+    func bottomBarFade() -> some View {
         background {
-            if overMap {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .mask {
-                        LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.45)],
-                                       startPoint: .top, endPoint: .bottom)
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .mask {
+                    // In points rather than gradient stops, because the bar's height changes with the safe area below it.
+                    VStack(spacing: 0) {
+                        LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 40)
+                        Color.black
                     }
-                    .padding(.top, -40)
-                    .ignoresSafeArea(edges: .bottom)
-            } else {
-                solidBottomFade
-            }
+                }
+                .padding(.top, -40)
+                .ignoresSafeArea(edges: .bottom)
         }
     }
 
-    private var solidBottomFade: some View {
-        Group {
-            // In points rather than gradient stops, because the bar's height changes with the safe area below it.
-            VStack(spacing: 0) {
-                LinearGradient(colors: [Color(.systemGroupedBackground).opacity(0), Color(.systemGroupedBackground)],
-                               startPoint: .top, endPoint: .bottom)
-                    .frame(height: 40)
-                Color(.systemGroupedBackground)
-            }
-            .padding(.top, -40)
-            .ignoresSafeArea(edges: .bottom)
-        }
-    }
-
-    /// Pins `header` above a scrolling list. Cards fade out beneath it once the list is scrolled;
-    /// at rest nothing dims the first card. Over a map, the map blurs out beneath it instead.
+    /// Pins `header` above a scrolling list. Cards blur out beneath it once the list is scrolled; at rest
+    /// nothing covers the first card. Over a map it's always on.
     func screenHeader<Header: View>(overMap: Bool = false, @ViewBuilder _ header: () -> Header) -> some View {
         modifier(ScreenHeaderModifier(header: header(), overMap: overMap))
     }
@@ -77,23 +62,16 @@ private struct ScreenHeaderModifier<Header: View>: ViewModifier {
                 header
                     .padding(.bottom, 4)
                     .background {
-                        ZStack {
-                            LinearGradient(stops: [.init(color: Color(.systemGroupedBackground), location: 0.5),
-                                                   .init(color: Color(.systemGroupedBackground).opacity(0), location: 1)],
-                                           startPoint: .top, endPoint: .bottom)
-                                .opacity(isScrolled && !overMap ? 1 : 0)
-                            Rectangle()
-                                .fill(.ultraThinMaterial)
-                                .mask {
-                                    LinearGradient(stops: [.init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
-                                                   startPoint: .top, endPoint: .bottom)
-                                }
-                                .opacity(overMap ? 1 : 0)
-                        }
-                        .padding(.bottom, -44)
-                        .ignoresSafeArea(edges: .top)
-                        .animation(.easeOut(duration: 0.2), value: isScrolled)
-                        .animation(.easeInOut(duration: 0.25), value: overMap)
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                            .mask {
+                                LinearGradient(stops: [.init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
+                                               startPoint: .top, endPoint: .bottom)
+                            }
+                            .opacity(isScrolled || overMap ? 1 : 0)
+                            .padding(.bottom, -44)
+                            .ignoresSafeArea(edges: .top)
+                            .animation(.easeOut(duration: 0.2), value: isScrolled || overMap)
                     }
             }
     }

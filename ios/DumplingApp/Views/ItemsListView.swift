@@ -188,7 +188,7 @@ struct ItemsListView: View {
                                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
                                 .zIndex(1)
                         }
-                        CategoryFilterBar(selection: $filter, available: availableFilters, overMap: showingMap)
+                        CategoryFilterBar(selection: $filter, available: availableFilters)
                     }
                     .animation(.easeOut(duration: 0.2), value: selectedPin)
                     .animation(.snappy(duration: 0.2), value: filter)
