@@ -11,6 +11,21 @@ struct EditListSheet: View {
     @State private var color: ListColor = .teal
     @State private var symbol = ListSymbols.defaultSymbol
     @FocusState private var nameFocused: Bool
+    @State private var search = ""
+
+    /// Matches icon tags, section names and the symbol's own name, so "coffee" or "hotel" work.
+    private var searchResults: [ListSymbols.Symbol] {
+        let terms = search.lowercased().split(separator: " ").map(String.init)
+        guard !terms.isEmpty else { return [] }
+        return ListSymbols.sections.flatMap { section in
+            section.symbols.filter { symbol in
+                // Match word starts, so "rain" finds rain and rainbow but not train or brain.
+                let words = "\(symbol.keywords) \(section.title) \(symbol.name.replacingOccurrences(of: ".", with: " "))"
+                    .lowercased().split(separator: " ")
+                return terms.allSatisfy { term in words.contains { $0.hasPrefix(term) } }
+            }
+        }
+    }
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
     private let symbolColumns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 6)
@@ -56,18 +71,37 @@ struct EditListSheet: View {
                     .padding(14)
                     .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
 
-                    LazyVGrid(columns: symbolColumns, spacing: 10) {
-                        ForEach(ListSymbols.all, id: \.self) { option in
-                            Button { symbol = option } label: {
-                                Image(systemName: option)
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(option == symbol ? .white : .primary)
-                                    .frame(width: 40, height: 40)
-                                    .background(option == symbol ? color.color : Color(.tertiarySystemFill), in: .circle)
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                            TextField("Search icons", text: $search)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                            if !search.isEmpty {
+                                Button { search = "" } label: {
+                                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                                }
+                                .accessibilityLabel("Clear Search")
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(option.replacingOccurrences(of: ".", with: " "))
-                            .accessibilityAddTraits(option == symbol ? .isSelected : [])
+                        }
+                        .padding(10)
+                        .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
+
+                        if search.isEmpty {
+                            ForEach(ListSymbols.sections) { section in
+                                Text(section.title)
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.top, 4)
+                                symbolGrid(section.symbols)
+                            }
+                        } else if searchResults.isEmpty {
+                            Text("No icons match “\(search)”")
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
+                        } else {
+                            symbolGrid(searchResults)
                         }
                     }
                     .padding(14)
@@ -95,6 +129,23 @@ struct EditListSheet: View {
                 } else {
                     nameFocused = true
                 }
+            }
+        }
+    }
+
+    private func symbolGrid(_ symbols: [ListSymbols.Symbol]) -> some View {
+        LazyVGrid(columns: symbolColumns, spacing: 10) {
+            ForEach(symbols, id: \.name) { option in
+                Button { symbol = option.name } label: {
+                    Image(systemName: option.name)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(option.name == symbol ? .white : .primary)
+                        .frame(width: 40, height: 40)
+                        .background(option.name == symbol ? color.color : Color(.tertiarySystemFill), in: .circle)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(option.keywords.components(separatedBy: " ").first ?? option.name)
+                .accessibilityAddTraits(option.name == symbol ? .isSelected : [])
             }
         }
     }
