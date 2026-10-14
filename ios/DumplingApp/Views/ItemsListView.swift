@@ -146,15 +146,13 @@ struct ItemsListView: View {
             .overlay {
                 if showingMap {
                     ItemsMapView(items: visible, selection: $selectedPin, userLocation: $userLocation)
-                        .safeAreaInset(edge: .top, spacing: 0) { headerStack.padding(.bottom, 4) }
+                        .safeAreaInset(edge: .top, spacing: 0) { headerStack.padding(.bottom, ScreenHeaderSpacing.bottom) }
                         .safeAreaInset(edge: .bottom, spacing: 0) { bottomControls }
                         .transition(.opacity)
                 }
             }
             .scrollEdgeEffectHidden(showingMap, for: .all)
-            .screenHeader {
-                if !showingMap { headerStack }
-            }
+            .screenHeader(hidden: showingMap) { headerStack }
             .sheet(isPresented: $showingAbout) { AboutView() }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .navigationTitle(section.rawValue)

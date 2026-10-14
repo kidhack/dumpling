@@ -202,15 +202,13 @@ struct ListDetailView: View {
         .overlay {
             if showingMap {
                 ItemsMapView(items: visible, selection: $selectedPin, userLocation: $userLocation)
-                    .safeAreaInset(edge: .top, spacing: 0) { header.padding(.bottom, 4) }
+                    .safeAreaInset(edge: .top, spacing: 0) { header.padding(.bottom, ScreenHeaderSpacing.bottom) }
                     .safeAreaInset(edge: .bottom, spacing: 0) { bottomControls }
                     .transition(.opacity)
             }
         }
         .scrollEdgeEffectHidden(showingMap, for: .all)
-        .screenHeader {
-            if !showingMap { header }
-        }
+        .screenHeader(hidden: showingMap) { header }
         .safeAreaBar(edge: .bottom) {
             if !items.isEmpty && !showingMap { bottomControls }
         }

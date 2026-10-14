@@ -42,13 +42,21 @@ extension View {
     }
 
     /// Pins `header` above a scrolling list, with the system's soft edge effect beneath it.
-    func screenHeader<Header: View>(@ViewBuilder _ header: () -> Header) -> some View {
-        modifier(ScreenHeaderModifier(header: header()))
+    /// `hidden` takes the bar out entirely (no height), for a screen that shows its header elsewhere, like the map.
+    func screenHeader<Header: View>(hidden: Bool = false, @ViewBuilder _ header: () -> Header) -> some View {
+        modifier(ScreenHeaderModifier(header: header(), hidden: hidden))
     }
+}
+
+enum ScreenHeaderSpacing {
+    /// Room between the header controls and the first card. Screens that place the header themselves (the map)
+    /// use it too, so the header doesn't move between them.
+    static let bottom: CGFloat = 14
 }
 
 private struct ScreenHeaderModifier<Header: View>: ViewModifier {
     let header: Header
+    let hidden: Bool
     @State private var isScrolled = false
 
     func body(content: Content) -> some View {
@@ -62,10 +70,11 @@ private struct ScreenHeaderModifier<Header: View>: ViewModifier {
             }
             // A bar, not an inset, so content scrolling under it gets the system's soft edge effect.
             .safeAreaBar(edge: .top, spacing: 0) {
-                // Room between the header controls and the first card.
-                header
-                    .padding(.bottom, 14)
-                    .background { backdrop }
+                if !hidden {
+                    header
+                        .padding(.bottom, ScreenHeaderSpacing.bottom)
+                        .background { backdrop }
+                }
             }
     }
 
