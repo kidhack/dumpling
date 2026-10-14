@@ -136,6 +136,8 @@ struct ListDetailView: View {
     @State private var showingMap = false
     @State private var selectedPin: UUID?
     @State private var userLocation: CLLocation?
+    /// The big title has scrolled under the header, so the small centered one shows instead.
+    @State private var titleScrolledAway = false
 
     private var items: [Item] { list.itemsArray.sorted { $0.timestamp > $1.timestamp } }
 
@@ -148,6 +150,29 @@ struct ListDetailView: View {
 
     var body: some View {
         List {
+            // Like a Notes folder: a big title and count at the top that scroll with the items, and give way
+            // to the small centered title in the header. Tapping either opens List Details.
+            Section {
+                Button {
+                    showingEdit = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(list.name)
+                            .font(.largeTitle.bold())
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(list.name), \(subtitle), List Details")
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 16))
+            }
             ForEach(visible) { item in
                 Section {
                     NavigationLink(value: item) {
@@ -168,6 +193,11 @@ struct ListDetailView: View {
             }
         }
         .cardList()
+        .onScrollGeometryChange(for: Bool.self) { geo in
+            geo.contentOffset.y + geo.contentInsets.top > 48
+        } action: { _, away in
+            titleScrolledAway = away
+        }
         // As in the sections: on the map, the header and bottom controls are plain insets on the map.
         .overlay {
             if showingMap {
@@ -276,6 +306,9 @@ struct ListDetailView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
+            .opacity(titleScrolledAway || showingMap ? 1 : 0)
+            .allowsHitTesting(titleScrolledAway || showingMap)
+            .animation(.easeOut(duration: 0.15), value: titleScrolledAway)
             .accessibilityLabel("\(list.name), \(subtitle), List Details")
         }
     }
