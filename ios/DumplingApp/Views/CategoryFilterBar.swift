@@ -43,7 +43,8 @@ struct CategoryFilterBar: View {
     private func chips(stretchSelected: Bool) -> some View {
         GlassEffectContainer(spacing: 5) {
             HStack(spacing: 5) {
-                chip(nil, label: "All", systemImage: "square.stack", tint: .accentColor, stretch: stretchSelected)
+                // All is neutral, like Mail: black in light mode, white in dark; the categories carry the color.
+                chip(nil, label: "All", systemImage: "square.stack", tint: Color(.label), stretch: stretchSelected)
                 ForEach(available) { kind in
                     chip(kind, label: kind.label, systemImage: kind.systemImage, tint: kind.tint, stretch: stretchSelected)
                 }
@@ -65,7 +66,7 @@ struct CategoryFilterBar: View {
                         .fixedSize()
                 }
             }
-            .foregroundStyle(isSelected ? .white : tint)
+            .foregroundStyle(isSelected ? (kind == nil ? Color(.systemBackground) : .white) : tint)
             .padding(.horizontal, isSelected ? 12 : 0)
             .frame(minWidth: Self.chipHeight, maxWidth: isSelected && stretch ? .infinity : nil, minHeight: Self.chipHeight)
             // Glass, so the chips stay readable over cards (or the map) scrolling beneath them.
